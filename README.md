@@ -1,6 +1,6 @@
 # Replication package
 
-### for the paper _Systems of Twinned Systems: A Systematic Literature Review_.
+### for the article _Systems of Twinned Systems: A Systematic Literature Review_.
 
 ## About
 TODO
