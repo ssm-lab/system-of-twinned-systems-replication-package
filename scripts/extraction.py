@@ -34,8 +34,20 @@ class Analysis:
         df = pd.read_excel(data_path, sheet_name="Sheet1")
         df.columns = df.iloc[0]
         df = df[1:].reset_index(drop=True)
+
         df["Publication year"] = pd.to_numeric(df["Publication year"], errors="coerce")
         df["Quality score"] = pd.to_numeric(df["Quality score"], errors="coerce")
+
+        # Make sure we don't grab data from anything where the quality score is blank or has a 0
+        columns_to_check = [
+            "Q1: SoS is clear",
+            "Q2: DT is clear",
+            "Q3: Tangible contributions",
+            "Q4: Reporting clarity"
+        ]
+        df[columns_to_check] = df[columns_to_check].apply(pd.to_numeric, errors="coerce")
+        df = df.dropna(subset=columns_to_check)
+        df = df[~(df[columns_to_check] == 0).any(axis=1)]
         return df
 
     def papersByCountry(self):
@@ -198,6 +210,9 @@ class Analysis:
 
         sos_column = "SoS Type"
         emergent_column = "Emergence"
+        
+        # Replace blanks with 'Not Considered'
+        self.df[emergent_column] = self.df[emergent_column].fillna("Not Considered")
 
         sos_vs_emergent = self.df.groupby([sos_column, emergent_column]).size().unstack()
 
