@@ -195,7 +195,7 @@ class Analysis:
             text_kwargs={'fontsize': 12, 'color': 'black'}
         )
 
-        plt.title("DT/PT Topology Categories", fontsize=16, pad=20)
+        plt.title("SoSDT Topology Categories", fontsize=16, pad=20)
         plt.axis("off")
         self.savefig("topologyExtraction")
         
