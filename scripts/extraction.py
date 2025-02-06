@@ -7,22 +7,31 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import squarify
+import plotly.express as px
+
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 pd.set_option('future.no_silent_downcasting', True)
 data_path = "data/Data extraction sheet.xlsx"
 results_path = "./output"
 
+# Need to clean up and categorize - domain, coordination, topology
 class Analysis:
     observation_map = {
-        1: "papersByCountry", #Extra Stats
-        2: "distributionOfQualityScores", #Extra Stats
-        3: "publicationTrendsOverTime", #Extra Stats
-        4: "topologyExtraction", #RQ 2, we should decide on a standard method of referring to them along with the coordination section
-        5: "dtClassDistribution", # RQ3
-        6: "sosDimensionsHeatmap",# RQ4
-        7: "sosDimensionsRadar", # RQ4
-        8: "sosTypeVsEmergence", #RQ4
-        9: "trlLevels", #RQ5
+        # 1: "papersByCountry", #Extra Stats
+        # 2: "distributionOfQualityScores", #Extra Stats
+        # 3: "publicationTrendsOverTime", #Extra Stats
+        4: "intentOfSoSDT", # RQ1
+        5: "topologyExtraction", #RQ2
+        6: "dtClassDistribution", # RQ3
+        # 7: "sosDimensionsHeatmap",# RQ4
+        8: "sosDimensionsRadar", # RQ4
+        9: "sosTypeVsEmergence", #RQ4
+        10: "trlLevels", #RQ5
+        11: "trlVsContributionType", #RQ5
     }
 
     def __init__(self):
@@ -96,6 +105,19 @@ class Analysis:
 
         self.savefig("publicationTrendsOverTime")
         
+        
+    def intentOfSoSDT(self):
+        intent_domain_counts = self.df.groupby(["Intent [NEW]", "Domain"]).size().reset_index(name="Count")
+        fig = px.treemap(intent_domain_counts, 
+            path=["Intent [NEW]", "Domain"], 
+            values="Count",
+            title="Treemap of Intent and Domain Based on Frequency",
+            color="Intent [NEW]",
+            color_discrete_sequence=px.colors.qualitative.Set2,)
+        
+        file_path = os.path.join(results_path, "intentOfSoSDT.html")
+        fig.write_html(file_path)
+            
     def sosDimensionsHeatmap(self):
         sos_dimensions = [str(col) for col in self.df.columns if isinstance(col, str) and col.startswith("SoS:")]
         
@@ -228,9 +250,14 @@ class Analysis:
         
         
     def trlLevels(self):
+        df = self.df.copy()
+        # TRL order
+        trl_order = ["Initial", "Proof-of-Concept", "Demo prototype", "Deployed prototype", "Operational"]
+        df["TRL"] = pd.Categorical(df["TRL"], categories=trl_order, ordered=True)
+        
         trl_column = "TRL"
-        trl_counts = self.df[trl_column].value_counts().sort_index()
-
+        trl_counts = df[trl_column].value_counts().sort_index()
+        
         plt.figure(figsize=(10, 6))
         trl_counts.index = trl_counts.index.astype(str).str.title()
         plt.stem(trl_counts.index, trl_counts.values, linefmt="#85d4ff", markerfmt="o", basefmt=" ")
@@ -241,10 +268,35 @@ class Analysis:
         plt.grid(axis="y", linestyle="--", alpha=0.7)
         self.savefig("trlLevels")
         
+    def trlVsContributionType(self):
+        df = self.df.copy()
+        trl_mapping = {
+            "Initial": 1.5,  # 1-2
+            "Proof-of-Concept": 3.5,  # 3-4
+            "Demo prototype": 5.5,  # 5-6
+            "Deployed prototype": 7.5,  # 7-8
+            "Operational": 9  # 9
+        }
+        df["TRL_numeric"] = df["TRL"].map(trl_mapping)
+    
+        trl_order = ["Initial", "Proof-of-Concept", "Demo prototype", "Deployed prototype", "Operational"]
+        df["TRL"] = pd.Categorical(df["TRL"], categories=trl_order, ordered=True)
+        
+        plt.figure(figsize=(12, 6))
+        sns.boxplot(x="Contribution type", y="TRL_numeric", data=df, palette="pastel", hue="Contribution type")
+        plt.yticks(
+            list(trl_mapping.values()), 
+            [f"{k.title()} ({int(v)})" if isinstance(v, int) else f"{k.title()} ({v-0.5:.1f}-{v+0.5:.1f})" for k, v in trl_mapping.items()]
+        )
+        plt.ylabel("TRL")
+        plt.title("TRL Distribution Across Contribution Types")
+        plt.xticks(rotation=45)
+        self.savefig("trlVsContributionType")
+                           
 
-    def savefig(self, func_name):
+    def savefig(self, func_name, file_type = "pdf"):
         filename = func_name.replace(" ", "_").replace("-", "_")
-        file_path = os.path.join(results_path, filename + ".pdf")
+        file_path = os.path.join(results_path, f"{filename}.{file_type}")
 
         # Remove any existing file with the same name
         for existing_file in os.listdir(results_path):
@@ -254,8 +306,7 @@ class Analysis:
         plt.gcf().tight_layout()
         plt.savefig(file_path)
         plt.close()
-        
-    
+
 
     def run_all(self):
         print("Running all observations...\n")
