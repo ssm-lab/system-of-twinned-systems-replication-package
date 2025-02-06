@@ -1,19 +1,19 @@
 import argparse
 import os
 import re
+import warnings
 from matplotlib.colors import Normalize
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-import squarify
+from upsetplot import UpSet
 import plotly.express as px
 
 import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-import plotly.io as pio
 
 pd.set_option('future.no_silent_downcasting', True)
 data_path = "data/Data extraction sheet.xlsx"
@@ -200,37 +200,40 @@ class Analysis:
 
         self.savefig("sosDimensionsRadar")
 
-            
-    
-        
+
+
     def topologyExtraction(self):
+        warnings.simplefilter(action='ignore', category=FutureWarning)
+        df = self.df.copy()
+
         topology_column = "Topology of DT/PT [NEW]"
-        topology_categories = {"hierarchical", "centralized", "decentralized", "distributed", "federated"}
+        topology_categories = {"Hierarchical", "Centralized", "Decentralized", "Distributed", "Federated"}
 
         def extract_topology(text):
             if pd.isna(text):
-                return None
-            found_categories = {word.lower() for word in re.findall(r"\b\w+\b", str(text))}
-            return list(topology_categories.intersection(found_categories)) 
+                return []
+            found_categories = {word.capitalize() for word in re.findall(r"\b\w+\b", str(text))}
+            return list(topology_categories.intersection(found_categories))
 
-        extracted_topologies = self.df[topology_column].apply(extract_topology)
-        topology_counts = extracted_topologies.explode().value_counts()
+        df["Extracted Topologies"] = df[topology_column].apply(extract_topology)
 
-        colors = sns.color_palette("Blues", len(topology_counts))
+        # binary matrix
+        for topology in topology_categories:
+            df[topology] = df["Extracted Topologies"].apply(lambda x: 1 if topology in x else 0)
+            
+        df.drop(columns=["Extracted Topologies", topology_column], inplace=True)
 
-        fig, ax = plt.subplots(figsize=(10, 6))
-        squarify.plot(
-            sizes=topology_counts.values, 
-            label=[f"{key.capitalize()}\n({value} papers)" for key, value in topology_counts.items()], 
-            alpha=0.8,
-            color=colors,
-            text_kwargs={'fontsize': 12, 'color': 'black'}
-        )
+        # Convert to MultiIndex format
+        df = df.set_index(list(topology_categories)).copy()
 
-        plt.title("SoSDT Topology Categories", fontsize=16, pad=20)
-        plt.axis("off")
+        plt.figure(figsize=(12, 7))
+        upset = UpSet(df, subset_size="count", show_percentages=True)
+        upset.plot()
+
+        plt.title("Topology Combinations in Papers", fontsize=14, y=1.05)
         self.savefig("topologyExtraction")
-        
+    
+
     def dtClassDistribution(self):
         dt_class_column = "DT Class" 
 
