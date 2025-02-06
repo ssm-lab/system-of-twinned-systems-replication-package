@@ -222,28 +222,22 @@ class Analysis:
         
         
     def sosTypeVsEmergence(self):
-        sos_column_original = "Type of SoS [NEW]"
-        emergent_column_original = "Emergence [NEW]"
+        df = self.df.copy()
         renamed_columns = {
-            sos_column_original: "SoS Type",
-            emergent_column_original: "Emergence"
+            "Type of SoS [NEW]": "SoS Type",
+            "Emergence [NEW]": "Emergence"
         }
-        self.df = self.df.rename(columns=renamed_columns)
+        df = df.rename(columns=renamed_columns)
 
-        sos_column = "SoS Type"
-        emergent_column = "Emergence"
-        
-        # Replace blanks with 'Not Considered'
-        self.df[emergent_column] = self.df[emergent_column].fillna("Not Considered")
+        df["Emergence"] = df["Emergence"].fillna("Not Considered")
 
-        sos_vs_emergent = self.df.groupby([sos_column, emergent_column]).size().unstack()
+        sos_vs_emergent = df.groupby(["SoS Type", "Emergence"]).size().unstack()
 
         sos_vs_emergent.plot(kind="bar", stacked=True, figsize=(12, 6), colormap="Set3")
         
-        plt.xlabel("SoS Type", fontsize=12)
-        plt.ylabel("Number of Papers", fontsize=12)
-        plt.title("SoS Type vs. Emergent Behavior", fontsize=14)
-
+        plt.xlabel("SoS Type")
+        plt.ylabel("Number of Papers")
+        plt.title("SoS Type vs. Emergent Behavior")
         plt.xticks(rotation=45, ha="right")
 
         self.savefig("sosTypeVsEmergence")
