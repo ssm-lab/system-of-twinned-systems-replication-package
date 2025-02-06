@@ -13,6 +13,7 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+import plotly.io as pio
 
 pd.set_option('future.no_silent_downcasting', True)
 data_path = "data/Data extraction sheet.xlsx"
@@ -107,17 +108,43 @@ class Analysis:
         
         
     def intentOfSoSDT(self):
-        intent_domain_counts = self.df.groupby(["Intent [NEW]", "Domain"]).size().reset_index(name="Count")
-        fig = px.treemap(intent_domain_counts, 
+        df = self.df.copy()
+        
+        intent_domain_counts = df.groupby(["Intent [NEW]", "Domain"]).size().reset_index(name="Count")
+        total_count = intent_domain_counts["Count"].sum()
+    
+        intent_domain_counts["Percentage"] = intent_domain_counts["Count"] / total_count * 100
+
+        fig = px.treemap(
+            intent_domain_counts, 
             path=["Intent [NEW]", "Domain"], 
             values="Count",
             title="Treemap of Intent and Domain Based on Frequency",
             color="Intent [NEW]",
-            color_discrete_sequence=px.colors.qualitative.Set2,)
+            color_discrete_sequence=px.colors.qualitative.Set2,
+            custom_data=["Count", "Percentage"]
+        )
+
+        fig.update_traces(
+            textinfo="label+text+value", 
+            texttemplate="%{label}<br>%{value} (%{customdata[1]:.1f}%)"
+        )
         
-        file_path = os.path.join(results_path, "intentOfSoSDT.html")
-        fig.write_html(file_path)
-            
+        fig.update_layout(
+            width=1200,
+            height=800,
+            title={
+                "y": 0.92, 
+                "x": 0.5, 
+                "xanchor": "center",
+                "yanchor": "top"
+            }
+        )
+
+        file_path = os.path.join(results_path, "intentOfSoSDT.png")
+        fig.write_image(file_path, scale=2)
+
+        
     def sosDimensionsHeatmap(self):
         sos_dimensions = [str(col) for col in self.df.columns if isinstance(col, str) and col.startswith("SoS:")]
         
@@ -135,12 +162,13 @@ class Analysis:
         
         
     def sosDimensionsRadar(self):
-        sos_dimensions = [str(col) for col in self.df.columns if isinstance(col, str) and col.startswith("SoS:")]
-    
-        # Numeric conversion
-        mapping = {"No": 0, "Partial": 0.5, "Yes": 1}
-        sos_dim = self.df[sos_dimensions].replace(mapping).astype(float)
+        df = self.df.copy()
         
+        sos_dimensions = [str(col) for col in df.columns if isinstance(col, str) and col.startswith("SoS:")]
+
+        mapping = {"No": 0, "Partial": 0.5, "Yes": 1}
+        sos_dim = df[sos_dimensions].replace(mapping).astype(float)
+
         renamed_dimensions = {col: col.replace("SoS: ", "") for col in sos_dimensions}
         sos_dim = sos_dim.rename(columns=renamed_dimensions)
 
@@ -150,25 +178,29 @@ class Analysis:
         values = avg_scores.values
         num_vars = len(labels)
 
-        # Compute angle for each axis
+        # Compute angles for radar chart
         angles = np.linspace(0, 2 * np.pi, num_vars, endpoint=False).tolist()
         values = np.concatenate((values, [values[0]]))
         angles += [angles[0]]
 
-        fig, ax = plt.subplots(figsize=(8, 8), subplot_kw=dict(polar=True))
-
+        fig, ax = plt.subplots(figsize=(9, 9), subplot_kw=dict(polar=True))
         ax.fill(angles, values, color="#85d4ff", alpha=0.3)
         ax.plot(angles, values, color="#85d4ff", linewidth=3, linestyle="solid")
 
+        # Add text labels for numerical values
+        for angle, value, label in zip(angles[:-1], values[:-1], labels):
+            ax.text(angle, value + 0.05, f"{value:.2f}", ha="center", fontsize=12, color="black")
+            
         ax.set_yticklabels([])
         ax.set_xticks(angles[:-1])
         ax.set_xticklabels(labels, fontsize=12)
 
+        plt.title("SoS Dimensions", fontsize=16, pad=20)
+        ax.spines["polar"].set_visible(False)  # Hide outer circle
 
-        plt.title("SoS Dimensions", fontsize=16, pad=30)
-        ax.spines["polar"].set_visible(False)
         self.savefig("sosDimensionsRadar")
-        
+
+            
     
         
     def topologyExtraction(self):
@@ -298,7 +330,7 @@ class Analysis:
                 os.remove(os.path.join(results_path, existing_file))
 
         plt.gcf().tight_layout()
-        plt.savefig(file_path)
+        plt.savefig(file_path, dpi=900)  
         plt.close()
 
 
