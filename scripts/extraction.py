@@ -86,6 +86,7 @@ class Analysis:
         plt.title("Distribution of Quality Scores")
         plt.grid(axis="y", linestyle="--", alpha=0.7)
         self.savefig("distributionOfQualityScores")
+        
 
     def publicationTrendsOverTime(self):
         papers_per_year = self.df["Publication year"].dropna().astype(int).value_counts().sort_index()
@@ -232,28 +233,56 @@ class Analysis:
 
         plt.title("Topology Combinations in Papers", fontsize=14, y=1.05)
         self.savefig("topologyExtraction")
-    
 
     def dtClassDistribution(self):
-        dt_class_column = "DT Class" 
+        df = self.df.copy()
+        
+        def classify_group(dt_class):
+            if dt_class in ["Human-actuated digital twin", "Human-supervised digital twin", "Digital twin"]:
+                return "Digital Twin Related"
+            elif dt_class == "Digital shadow":
+                return "Non Digital Twins Related"
+            elif dt_class == "Digital model":
+                return "Non Digital Twins Related"
+            else:
+                return "Other"
 
-        dt_class_counts = self.df[dt_class_column].value_counts()
-        dt_class_counts.index = dt_class_counts.index.str.title()
+        df["DT Class Grouped"] = df["DT Class"].apply(classify_group)
 
-        plt.figure(figsize=(10, 6))
-        sns.barplot(
-            y=dt_class_counts.index, 
-            x=dt_class_counts.values, 
-            hue=dt_class_counts.index,
-            palette="Blues",
-            legend=False,
+        dt_class_counts = df.groupby(["DT Class Grouped", "DT Class"]).size().reset_index(name="Count")
+        total_count = dt_class_counts["Count"].sum()
+
+        dt_class_counts["Percentage"] = dt_class_counts["Count"] / total_count * 100
+
+        fig = px.treemap(
+            dt_class_counts,
+            path=["DT Class Grouped", "DT Class"],
+            values="Count",
+            title="Treemap of DT Class Distribution",
+            color="DT Class Grouped",
+            color_discrete_sequence=px.colors.qualitative.Set2,
+            custom_data=["Count", "Percentage"]
         )
-        plt.xlabel("Number of Papers", fontsize=12)
-        plt.ylabel("DT Class", fontsize=12)
-        plt.title("Distribution of DT Classes", fontsize=14)
 
-        plt.grid(axis="x", linestyle="--", alpha=0.7)
-        self.savefig("dtClassDistribution")
+        fig.update_traces(
+            textinfo="label+text+value", 
+            texttemplate="%{label}<br>%{value} (%{customdata[1]:.1f}%)"
+        )
+
+        fig.update_layout(
+            width=1200,
+            height=800,
+            title={
+                "y": 0.92, 
+                "x": 0.5, 
+                "xanchor": "center",
+                "yanchor": "top"
+            }
+        )
+
+        file_path = os.path.join(results_path, "dtClassDistribution.png")
+        fig.write_image(file_path, scale=2)
+
         
         
     def sosTypeVsEmergence(self):
@@ -266,61 +295,77 @@ class Analysis:
 
         df["Emergence"] = df["Emergence"].fillna("Not Considered")
 
-        sos_vs_emergent = df.groupby(["SoS Type", "Emergence"]).size().unstack()
+        sos_vs_emergent = df.groupby(["SoS Type", "Emergence"]).size().unstack().fillna(0)
 
-        sos_vs_emergent.plot(kind="bar", stacked=True, figsize=(12, 6), colormap="Set3")
+        plt.figure(figsize=(12, 6))
+        sns.heatmap(
+            sos_vs_emergent, 
+            annot=True, 
+            cmap="Blues", 
+            fmt=".0f", 
+            linewidths=0.5, 
+            linecolor="lightgray"
+        )
+
+        plt.xlabel("Emergent Behavior", fontsize=12)
+        plt.ylabel("SoS Type", fontsize=12)
+        plt.title("Heatmap of SoS Type vs. Emergent Behavior", fontsize=14)
         
-        plt.xlabel("SoS Type")
-        plt.ylabel("Number of Papers")
-        plt.title("SoS Type vs. Emergent Behavior")
-        plt.xticks(rotation=45, ha="right")
-
         self.savefig("sosTypeVsEmergence")
         
         
     def trlLevels(self):
         df = self.df.copy()
-        # TRL order
+
         trl_order = ["Initial", "Proof-of-Concept", "Demo prototype", "Deployed prototype", "Operational"]
         df["TRL"] = pd.Categorical(df["TRL"], categories=trl_order, ordered=True)
-        
-        trl_column = "TRL"
-        trl_counts = df[trl_column].value_counts().sort_index()
-        
+
+        trl_counts = df["TRL"].value_counts().reindex(trl_order, fill_value=0) 
+
         plt.figure(figsize=(10, 6))
-        trl_counts.index = trl_counts.index.astype(str).str.title()
-        plt.stem(trl_counts.index, trl_counts.values, linefmt="#85d4ff", markerfmt="o", basefmt=" ")
+        plt.bar(trl_counts.index, trl_counts.values, color="#85d4ff", edgecolor="black")
 
         plt.xlabel("TRL Level", fontsize=12)
         plt.ylabel("Number of Papers", fontsize=12)
         plt.title("TRL Levels in Papers", fontsize=14)
+
         plt.grid(axis="y", linestyle="--", alpha=0.7)
+
         self.savefig("trlLevels")
         
+        
+    
+    
     def trlVsContributionType(self):
         df = self.df.copy()
-        trl_mapping = {
-            "Initial": 1.5,  # 1-2
-            "Proof-of-Concept": 3.5,  # 3-4
-            "Demo prototype": 5.5,  # 5-6
-            "Deployed prototype": 7.5,  # 7-8
-            "Operational": 9  # 9
-        }
-        df["TRL_numeric"] = df["TRL"].map(trl_mapping)
-    
+
         trl_order = ["Initial", "Proof-of-Concept", "Demo prototype", "Deployed prototype", "Operational"]
         df["TRL"] = pd.Categorical(df["TRL"], categories=trl_order, ordered=True)
-        
-        plt.figure(figsize=(12, 6))
-        sns.boxplot(x="Contribution type", y="TRL_numeric", data=df, palette="pastel", hue="Contribution type")
-        plt.yticks(
-            list(trl_mapping.values()), 
-            [f"{k.title()} ({int(v)})" if isinstance(v, int) else f"{k.title()} ({v-0.5:.1f}-{v+0.5:.1f})" for k, v in trl_mapping.items()]
+
+        trl_contribution_counts = df.groupby(["TRL", "Contribution type"]).size().reset_index(name="Count")
+
+        pivot_df = trl_contribution_counts.pivot(index="TRL", columns="Contribution type", values="Count").fillna(0)
+
+        pivot_df.plot(
+            kind="bar", 
+            figsize=(12, 6), 
+            width=0.8, 
+            colormap="Set3",
+            edgecolor="black"
         )
-        plt.ylabel("TRL")
-        plt.title("TRL Distribution Across Contribution Types")
-        plt.xticks(rotation=45)
+
+        plt.xlabel("TRL Level", fontsize=12)
+        plt.ylabel("Number of Papers", fontsize=12)
+        plt.title("TRL Distribution Across Contribution Types", fontsize=14)
+
+        capitalized_trl_order = [trl.title() for trl in trl_order]  
+        plt.xticks(ticks=range(len(trl_order)), labels=capitalized_trl_order, rotation=45)
+
+        plt.grid(axis="y", linestyle="--", alpha=0.7)
+        plt.legend(title="Contribution Type", bbox_to_anchor=(1.05, 1), loc="upper left")
+
         self.savefig("trlVsContributionType")
+
                            
 
     def savefig(self, func_name, file_type = "pdf"):
