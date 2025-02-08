@@ -16,12 +16,19 @@ outputFolder = './output'
 data = pd.read_excel(f'{inputFolder}/data.xlsx')
 
 data = data[data['Quality score'].notnull()]
-#data = data[data['Quality score'] >= 2]
+qualityThresholds = {
+    'Q1: SoS is clear' : 1,
+    'Q2: DT is clear' : 1,
+    'Q3: Tangible contributions' : 1,
+    'Q4: Reporting clarity' : 1
+}
+for qualityCriterion, minValue in qualityThresholds.items():
+    data = data[data[qualityCriterion] >= minValue]
 
 #collection for non-default category thresholds
 thresholds = {
     'Publication type' : 0,
-    'Domain' : 0,
+    'Domain (Aggregated)' : 2,
     'Publisher' : 2,
     'Publication year' : 0,
     'Author countries cluster' : 0
@@ -31,7 +38,7 @@ thresholds = {
 orderByCategory = ['Publication year', 'Publication type']
 
 orders = {
-    'Publication year' : ['2015', '2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023', '2024'],
+    'Publication year' : ['2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023', '2024'],
     'Publication type' : ['Book chapter', 'Journal', 'Conference', 'Workshop'],
 }
 
@@ -166,6 +173,6 @@ def chartData(data, settings):
 
 chartData(data, [
     (['Publication year', 'Publication type', 'Publisher'], '#85d4ff', 'publications'),
-    (['Domain'], '#85d4ff', 'domain'),
+    (['Domain (Aggregated)'], '#85d4ff', 'domain'),
     ]
 )

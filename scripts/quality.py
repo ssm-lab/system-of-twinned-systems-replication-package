@@ -16,7 +16,14 @@ outputFolder = './output'
 data = pd.read_excel(f'{inputFolder}/data.xlsx')
 
 data = data[data['Quality score'].notnull()]
-#data = data[data['Quality score'] >= 2]
+qualityThresholds = {
+    'Q1: SoS is clear' : 1,
+    'Q2: DT is clear' : 1,
+    'Q3: Tangible contributions' : 1,
+    'Q4: Reporting clarity' : 1
+}
+for qualityCriterion, minValue in qualityThresholds.items():
+    data = data[data[qualityCriterion] >= minValue]
 
 prettyPrintDatapoint = {
     'Q0' : 'OVERALL',
