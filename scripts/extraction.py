@@ -111,14 +111,14 @@ class Analysis:
     def intentOfSoSDT(self):
         df = self.df.copy()
         
-        intent_domain_counts = df.groupby(["Intent [NEW]", "Domain"]).size().reset_index(name="Count")
+        intent_domain_counts = df.groupby(["Intent [NEW]", "Domain (Aggregated)"]).size().reset_index(name="Count")
         total_count = intent_domain_counts["Count"].sum()
     
         intent_domain_counts["Percentage"] = intent_domain_counts["Count"] / total_count * 100
 
         fig = px.treemap(
             intent_domain_counts, 
-            path=["Intent [NEW]", "Domain"], 
+            path=["Intent [NEW]", "Domain (Aggregated)"], 
             values="Count",
             title="Treemap of Intent and Domain Based on Frequency",
             color="Intent [NEW]",
