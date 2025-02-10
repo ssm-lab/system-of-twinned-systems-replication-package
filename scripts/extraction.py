@@ -22,10 +22,11 @@ results_path = "./output"
 # Need to clean up and categorize - domain, coordination, topology
 class Analysis:
     observation_map = {
-        # 1: "papersByCountry", #Extra Stats
+        1: "papersByCountry", #Extra Stats
         # 2: "distributionOfQualityScores", #Extra Stats
         # 3: "publicationTrendsOverTime", #Extra Stats
         4: "intentOfSoSDT", # RQ1
+        12: "motivations", #RQ1
         5: "topologyExtraction", #RQ2
         6: "dtClassDistribution", # RQ3
         # 7: "sosDimensionsHeatmap",# RQ4
@@ -63,19 +64,26 @@ class Analysis:
     def papersByCountry(self):
         country_counts = self.df["Author countries"].dropna().str.split(", ").explode().value_counts().sort_index()
 
+        # Ensure all values are integers
+        country_counts = country_counts.round(0).astype(int)
+
         norm = Normalize(vmin=country_counts.min(), vmax=country_counts.max())
         colours = [sns.dark_palette("#85d4ff", as_cmap=True)(norm(v)) for v in country_counts]
 
         plt.figure(figsize=(12, 5))
-        sns.barplot(x=country_counts.index, y=country_counts.values, hue=country_counts.index, palette=colours)
+        sns.barplot(x=country_counts.index, y=country_counts.values, hue=country_counts.index, 
+                    palette=colours, ci=None, estimator=lambda x: sum(x))
 
         plt.xlabel("Country")
         plt.ylabel("Number of Papers")
         plt.title("Number of Papers by Country")
         plt.xticks(rotation=45, ha="right")
+        plt.yticks(range(0, int(max(country_counts)) + 1, 1))  # Forces integer y-ticks
         plt.grid(axis="y", linestyle="--", alpha=0.7)
 
         self.savefig("papersByCountry")
+
+
         
         
     def distributionOfQualityScores(self):
@@ -108,14 +116,22 @@ class Analysis:
         self.savefig("publicationTrendsOverTime")
         
         
-    def intentOfSoSDT(self):
+    def intentOfSoSDT(self, threshold=1):
         df = self.df.copy()
-        
+
         intent_domain_counts = df.groupby(["Intent [NEW]", "Domain (Aggregated)"]).size().reset_index(name="Count")
         total_count = intent_domain_counts["Count"].sum()
-    
-        intent_domain_counts["Percentage"] = intent_domain_counts["Count"] / total_count * 100
 
+        intent_domain_counts["Percentage"] = (intent_domain_counts["Count"] / total_count) * 100
+
+        threshold_mask = intent_domain_counts["Count"] <= threshold
+        other_group = intent_domain_counts[threshold_mask].groupby("Intent [NEW]")["Count"].sum().reset_index()
+        other_group["Domain (Aggregated)"] = "Other"
+        other_group["Percentage"] = (other_group["Count"] / total_count) * 100
+
+        intent_domain_counts = intent_domain_counts[~threshold_mask]
+        intent_domain_counts = pd.concat([intent_domain_counts, other_group], ignore_index=True)
+        
         fig = px.treemap(
             intent_domain_counts, 
             path=["Intent [NEW]", "Domain (Aggregated)"], 
@@ -127,23 +143,80 @@ class Analysis:
         )
 
         fig.update_traces(
-            textinfo="label+text+value", 
-            texttemplate="%{label}<br>%{value} (%{customdata[1]:.1f}%)"
+            textinfo="label+text+value",
+            texttemplate="<b>%{label}</b><br>%{value} (%{customdata[1]:.1f}%)",
+            insidetextfont=dict(size=20),  
+            outsidetextfont=dict(size=22) 
         )
-        
+
         fig.update_layout(
-            width=1200,
-            height=800,
+            width=1500,
+            height=1000,
             title={
                 "y": 0.92, 
                 "x": 0.5, 
                 "xanchor": "center",
-                "yanchor": "top"
-            }
+                "yanchor": "top",
+                "font": dict(size=24)
+            },
+            font=dict(size=20),
         )
 
         file_path = os.path.join(results_path, "intentOfSoSDT.png")
         fig.write_image(file_path, scale=2)
+
+
+        
+        
+    def motivations(self):
+        df = self.df.copy()
+        
+        motivation_column = "Motivation (Clustered)"
+        
+        if motivation_column not in df.columns:
+            print(f"Error: Column '{motivation_column}' not found in dataset.")
+            return
+
+        df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
+
+        total_papers = len(df)
+
+
+        summary_df = df.groupby(motivation_column).agg(
+            Paper_Count=("Paper ID", "count")
+        ).reset_index()
+
+
+        summary_df["Percentage"] = (summary_df["Paper_Count"] / total_papers) * 100
+
+        summary_df = summary_df.sort_values(by="Percentage", ascending=False)
+
+        summary_df["Percentage"] = summary_df["Percentage"].round(2)
+        
+        def generate_latex_table(summary_df):
+            latex_table = r"""
+                \begin{table*}[h]
+                    \centering
+                    \caption{Motivations}
+                    \begin{tabular}{|l|c|l|}
+                        \hline
+                        \textbf{Category} & \textbf{\# Papers} & \textbf{Papers} \\ 
+                        \hline
+                """
+            for _, row in summary_df.iterrows():
+                category = row["Motivation (Clustered)"]
+                paper_count = row["Paper_Count"]
+                percentage = row["Percentage"]
+                
+                latex_table += f"        {category} & \\textbf{{{paper_count}}} ({percentage}\\%) & \\cite{{placeholder}} \\\\\n        \\hline\n"
+            
+            latex_table += r"""    \end{tabular}
+                    \label{tab:motivations}
+                \end{table*}"""
+
+            return latex_table
+        self.saveHTML("motivations", generate_latex_table(summary_df))
+        
 
         
     def sosDimensionsHeatmap(self):
@@ -380,6 +453,22 @@ class Analysis:
         plt.gcf().tight_layout()
         plt.savefig(file_path, dpi=900)  
         plt.close()
+        
+    def saveHTML(self, func_name, html_content):
+        output_folder = results_path
+        os.makedirs(output_folder, exist_ok=True)
+
+        filename = func_name.replace(" ", "_").replace("-", "_") + ".html"
+        file_path = os.path.join(output_folder, filename)
+
+        # Remove any existing file with the same name
+        for existing_file in os.listdir(output_folder):
+            if existing_file.startswith(filename):
+                os.remove(os.path.join(output_folder, existing_file))
+
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(html_content)
+
 
 
     def run_all(self):
