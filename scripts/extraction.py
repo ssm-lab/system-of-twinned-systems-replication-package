@@ -217,6 +217,123 @@ class Analysis:
             return latex_table
         self.saveHTML("motivations", generate_latex_table(summary_df))
         
+        
+        
+    def topologyExtraction(self):
+        warnings.simplefilter(action='ignore', category=FutureWarning)
+        df = self.df.copy()
+
+        topology_column = "Topology of DT/PT [NEW]"
+        topology_categories = ["Hierarchical", "Centralized", "Decentralized", "Distributed", "Federated"]
+
+        def extract_topology(text):
+            if pd.isna(text):
+                return []
+            found_categories = {word.capitalize() for word in re.findall(r"\b\w+\b", str(text))}
+            return list(set(topology_categories).intersection(found_categories))
+
+        df["Extracted Topologies"] = df[topology_column].apply(extract_topology)
+
+        for topology in topology_categories:
+            df[topology] = df["Extracted Topologies"].apply(lambda x: 1 if topology in x else 0)
+
+        topology_counts = pd.DataFrame({
+            "Topology": topology_categories, 
+            "Count": [df[topology].sum() for topology in topology_categories] 
+        })
+
+        total_papers = topology_counts["Count"].sum()
+        topology_counts["Percentage"] = (topology_counts["Count"] / total_papers) * 100
+
+        topology_counts = topology_counts.sort_values(by="Percentage", ascending=True)
+
+        fig, ax = plt.subplots(figsize=(8, 5))
+        indexes = np.arange(len(topology_counts))
+
+        bars = ax.barh(indexes, topology_counts["Percentage"], color="#85d4ff")
+
+        # Labels with percentages
+        labels = [f"{row['Topology']} \u2014 {row['Percentage']:.1f}%" for _, row in topology_counts.iterrows()]
+        plt.yticks(indexes, labels)
+
+        # Remove plot borders
+        ax.spines["right"].set_visible(False)
+        ax.spines["top"].set_visible(False)
+        ax.spines["bottom"].set_visible(False)
+
+        plt.tick_params(axis="x", which="both", bottom=False, top=False, labelbottom=False)
+
+        ax.tick_params(axis="y", direction="out", pad=-10)
+        ax.yaxis.set_ticks_position("none") 
+        ax.set_yticklabels(labels, ha="left")  
+
+        # Title and labels
+        ax.set_xlabel("Percentage of Papers", fontsize=12)
+        ax.set_ylabel("Topology Type", fontsize=12, labelpad=10)
+        plt.title("Distribution of Topologies Mentioned", fontsize=14)
+
+        labels = ax.get_yticklabels() + ax.get_xticklabels()
+        for label in labels:
+            label.set_fontsize(13)
+
+        fig.set_size_inches(8, 4)
+        plt.tight_layout()
+
+        self.savefig("topologyExtraction")
+
+
+
+        
+
+    def dtClassDistribution(self):
+        df = self.df.copy()
+        
+        def classify_group(dt_class):
+            if dt_class in ["Human-actuated digital twin", "Human-supervised digital twin", "Digital twin"]:
+                return "Digital Twin Related"
+            elif dt_class == "Digital shadow":
+                return "Non Digital Twins Related"
+            elif dt_class == "Digital model":
+                return "Non Digital Twins Related"
+            else:
+                return "Other"
+
+        df["DT Class Grouped"] = df["DT Class"].apply(classify_group)
+
+        dt_class_counts = df.groupby(["DT Class Grouped", "DT Class"]).size().reset_index(name="Count")
+        total_count = dt_class_counts["Count"].sum()
+
+        dt_class_counts["Percentage"] = dt_class_counts["Count"] / total_count * 100
+
+        fig = px.treemap(
+            dt_class_counts,
+            path=["DT Class Grouped", "DT Class"],
+            values="Count",
+            title="Treemap of DT Class Distribution",
+            color="DT Class Grouped",
+            color_discrete_sequence=px.colors.qualitative.Set2,
+            custom_data=["Count", "Percentage"]
+        )
+
+        fig.update_traces(
+            textinfo="label+text+value", 
+            texttemplate="%{label}<br>%{value} (%{customdata[1]:.1f}%)"
+        )
+
+        fig.update_layout(
+            width=1200,
+            height=800,
+            title={
+                "y": 0.92, 
+                "x": 0.5, 
+                "xanchor": "center",
+                "yanchor": "top"
+            }
+        )
+
+        file_path = os.path.join(results_path, "dtClassDistribution.png")
+        fig.write_image(file_path, scale=2)
+        
 
         
     def sosDimensionsHeatmap(self):
@@ -273,88 +390,6 @@ class Analysis:
         ax.spines["polar"].set_visible(False)  # Hide outer circle
 
         self.savefig("sosDimensionsRadar")
-
-
-
-    def topologyExtraction(self):
-        warnings.simplefilter(action='ignore', category=FutureWarning)
-        df = self.df.copy()
-
-        topology_column = "Topology of DT/PT [NEW]"
-        topology_categories = {"Hierarchical", "Centralized", "Decentralized", "Distributed", "Federated"}
-
-        def extract_topology(text):
-            if pd.isna(text):
-                return []
-            found_categories = {word.capitalize() for word in re.findall(r"\b\w+\b", str(text))}
-            return list(topology_categories.intersection(found_categories))
-
-        df["Extracted Topologies"] = df[topology_column].apply(extract_topology)
-
-        # binary matrix
-        for topology in topology_categories:
-            df[topology] = df["Extracted Topologies"].apply(lambda x: 1 if topology in x else 0)
-            
-        df.drop(columns=["Extracted Topologies", topology_column], inplace=True)
-
-        # Convert to MultiIndex format
-        df = df.set_index(list(topology_categories)).copy()
-
-        plt.figure(figsize=(12, 7))
-        upset = UpSet(df, subset_size="count", show_percentages=True)
-        upset.plot()
-
-        plt.title("Topology Combinations in Papers", fontsize=14, y=1.05)
-        self.savefig("topologyExtraction")
-
-    def dtClassDistribution(self):
-        df = self.df.copy()
-        
-        def classify_group(dt_class):
-            if dt_class in ["Human-actuated digital twin", "Human-supervised digital twin", "Digital twin"]:
-                return "Digital Twin Related"
-            elif dt_class == "Digital shadow":
-                return "Non Digital Twins Related"
-            elif dt_class == "Digital model":
-                return "Non Digital Twins Related"
-            else:
-                return "Other"
-
-        df["DT Class Grouped"] = df["DT Class"].apply(classify_group)
-
-        dt_class_counts = df.groupby(["DT Class Grouped", "DT Class"]).size().reset_index(name="Count")
-        total_count = dt_class_counts["Count"].sum()
-
-        dt_class_counts["Percentage"] = dt_class_counts["Count"] / total_count * 100
-
-        fig = px.treemap(
-            dt_class_counts,
-            path=["DT Class Grouped", "DT Class"],
-            values="Count",
-            title="Treemap of DT Class Distribution",
-            color="DT Class Grouped",
-            color_discrete_sequence=px.colors.qualitative.Set2,
-            custom_data=["Count", "Percentage"]
-        )
-
-        fig.update_traces(
-            textinfo="label+text+value", 
-            texttemplate="%{label}<br>%{value} (%{customdata[1]:.1f}%)"
-        )
-
-        fig.update_layout(
-            width=1200,
-            height=800,
-            title={
-                "y": 0.92, 
-                "x": 0.5, 
-                "xanchor": "center",
-                "yanchor": "top"
-            }
-        )
-
-        file_path = os.path.join(results_path, "dtClassDistribution.png")
-        fig.write_image(file_path, scale=2)
 
         
         
