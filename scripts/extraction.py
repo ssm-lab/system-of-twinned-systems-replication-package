@@ -172,52 +172,48 @@ class Analysis:
         df = self.df.copy()
         
         motivation_column = "Motivation (Clustered)"
-        
+        citation_column = "Citation Code"
+
         if motivation_column not in df.columns:
             print(f"Error: Column '{motivation_column}' not found in dataset.")
             return
 
         df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
 
-        total_papers = len(df)
-
-
         summary_df = df.groupby(motivation_column).agg(
-            Paper_Count=("Paper ID", "count")
+            Paper_Count=("Paper ID", "count"),
+            Citations=(citation_column, lambda x: f"\\cite{{{', '.join(x.dropna().unique())}}}" if x.dropna().any() else "\\cite{placeholder}")
         ).reset_index()
 
+        summary_df = summary_df.sort_values(by="Paper_Count", ascending=False)
 
-        summary_df["Percentage"] = (summary_df["Paper_Count"] / total_papers) * 100
-
-        summary_df = summary_df.sort_values(by="Percentage", ascending=False)
-
-        summary_df["Percentage"] = summary_df["Percentage"].round(2)
-        
         def generate_latex_table(summary_df):
-            latex_table = r"""
-                \begin{table*}[h]
-                    \centering
-                    \caption{Motivations}
-                    \begin{tabular}{|l|c|l|}
-                        \hline
-                        \textbf{Category} & \textbf{\# Papers} & \textbf{Papers} \\ 
-                        \hline
-                """
+            latex_table = r"""\begin{table*}[]
+            \centering
+            \caption{Motivations in Studies}
+            \label{tab:motivations}
+            \begin{tabular}{@{}lll@{}}
+            \toprule
+            \multicolumn{1}{c}{\textbf{Motivation}} & \multicolumn{1}{c}{\textbf{Number of studies}} & \multicolumn{1}{c}{\textbf{Studies}} \\ 
+            \midrule
+            """
+
             for _, row in summary_df.iterrows():
                 category = row["Motivation (Clustered)"]
                 paper_count = row["Paper_Count"]
-                percentage = row["Percentage"]
-                
-                latex_table += f"        {category} & \\textbf{{{paper_count}}} ({percentage}\\%) & \\cite{{placeholder}} \\\\\n        \\hline\n"
-            
-            latex_table += r"""    \end{tabular}
-                    \label{tab:motivations}
-                \end{table*}"""
+                citations = row["Citations"]
+                latex_table += f"{category} & \\maindatabar{{{paper_count}}} & {citations} \\\\\n"
+
+            latex_table += r"""\bottomrule
+            \end{tabular}
+            \end{table*}"""
 
             return latex_table
-        self.saveHTML("motivations", generate_latex_table(summary_df))
-        
-        
+
+        self.saveLatex("motivations", generate_latex_table(summary_df))
+
+
+ 
         
     def topologyExtraction(self):
         warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -317,18 +313,22 @@ class Analysis:
 
         fig.update_traces(
             textinfo="label+text+value", 
-            texttemplate="%{label}<br>%{value} (%{customdata[1]:.1f}%)"
+            texttemplate="<b>%{label}</b><br>%{value} (%{customdata[1]:.1f}%)",
+            insidetextfont=dict(size=20),  
+            outsidetextfont=dict(size=22) 
         )
 
         fig.update_layout(
-            width=1200,
-            height=800,
+            width=1500,
+            height=1000,
             title={
                 "y": 0.92, 
                 "x": 0.5, 
                 "xanchor": "center",
-                "yanchor": "top"
-            }
+                "yanchor": "top",
+                "font": dict(size=24)
+            },
+            font=dict(size=20),
         )
 
         file_path = os.path.join(results_path, "dtClassDistribution.png")
@@ -489,11 +489,11 @@ class Analysis:
         plt.savefig(file_path, dpi=900)  
         plt.close()
         
-    def saveHTML(self, func_name, html_content):
+    def saveLatex(self, func_name, html_content):
         output_folder = results_path
         os.makedirs(output_folder, exist_ok=True)
 
-        filename = func_name.replace(" ", "_").replace("-", "_") + ".html"
+        filename = func_name.replace(" ", "_").replace("-", "_") + ".tex"
         file_path = os.path.join(output_folder, filename)
 
         # Remove any existing file with the same name
