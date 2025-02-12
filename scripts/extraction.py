@@ -26,7 +26,7 @@ class Analysis:
         # 2: "distributionOfQualityScores", #Extra Stats
         # 3: "publicationTrendsOverTime", #Extra Stats
         4: "intentOfSoSDT", # RQ1
-        12: "motivations", #RQ1
+        12: "motivationsTable", #RQ1
         5: "topologyExtraction", #RQ2
         6: "dtClassDistribution", # RQ3
         # 7: "sosDimensionsHeatmap",# RQ4
@@ -168,7 +168,7 @@ class Analysis:
 
         
         
-    def motivations(self):
+    def motivationsTable(self):
         df = self.df.copy()
         
         motivation_column = "Motivation (Clustered)"
@@ -182,7 +182,7 @@ class Analysis:
 
         summary_df = df.groupby(motivation_column).agg(
             Paper_Count=("Paper ID", "count"),
-            Citations=(citation_column, lambda x: f"\\cite{{{', '.join(x.dropna().unique())}}}" if x.dropna().any() else "\\cite{placeholder}")
+            Citations=(citation_column, lambda x: f"\\citepPS{{{', '.join(x.dropna().unique())}}}" if x.dropna().any() else "\\citepPS{placeholder}")
         ).reset_index()
 
         summary_df = summary_df.sort_values(by="Paper_Count", ascending=False)
