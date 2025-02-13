@@ -119,13 +119,13 @@ class Analysis:
     def intentOfSoSDT(self, threshold=1):
         df = self.df.copy()
 
-        intent_domain_counts = df.groupby(["Intent [NEW]", "Domain (Aggregated)"]).size().reset_index(name="Count")
+        intent_domain_counts = df.groupby(["Intent", "Domain (Aggregated)"]).size().reset_index(name="Count")
         total_count = intent_domain_counts["Count"].sum()
 
         intent_domain_counts["Percentage"] = (intent_domain_counts["Count"] / total_count) * 100
 
         threshold_mask = intent_domain_counts["Count"] <= threshold
-        other_group = intent_domain_counts[threshold_mask].groupby("Intent [NEW]")["Count"].sum().reset_index()
+        other_group = intent_domain_counts[threshold_mask].groupby("Intent")["Count"].sum().reset_index()
         other_group["Domain (Aggregated)"] = "Other"
         other_group["Percentage"] = (other_group["Count"] / total_count) * 100
 
@@ -134,10 +134,10 @@ class Analysis:
         
         fig = px.treemap(
             intent_domain_counts, 
-            path=["Intent [NEW]", "Domain (Aggregated)"], 
+            path=["Intent", "Domain (Aggregated)"], 
             values="Count",
             title="Treemap of Intent and Domain Based on Frequency",
-            color="Intent [NEW]",
+            color="Intent",
             color_discrete_sequence=px.colors.qualitative.Set2,
             custom_data=["Count", "Percentage"]
         )
@@ -183,6 +183,7 @@ class Analysis:
         summary_df = df.groupby(motivation_column).agg(
             Paper_Count=("Paper ID", "count"),
             Citations=(citation_column, lambda x: f"\\citepPS{{{', '.join(x.dropna().unique())}}}" if x.dropna().any() else "\\citepPS{placeholder}")
+            # Citations=(citation_column, lambda x: ", ".join(f"\\citePS{{{cite}}}" for cite in x.dropna().unique()) if x.dropna().any() else "\\citePS{placeholder}")
         ).reset_index()
 
         summary_df = summary_df.sort_values(by="Paper_Count", ascending=False)
@@ -219,7 +220,7 @@ class Analysis:
         warnings.simplefilter(action='ignore', category=FutureWarning)
         df = self.df.copy()
 
-        topology_column = "Topology of DT/PT [NEW]"
+        topology_column = "Topology of DT/PT"
         topology_categories = ["Hierarchical", "Centralized", "Decentralized", "Distributed", "Federated"]
 
         def extract_topology(text):
@@ -396,8 +397,8 @@ class Analysis:
     def sosTypeVsEmergence(self):
         df = self.df.copy()
         renamed_columns = {
-            "Type of SoS [NEW]": "SoS Type",
-            "Emergence [NEW]": "Emergence"
+            "Type of SoS": "SoS Type",
+            "Emergence": "Emergence"
         }
         df = df.rename(columns=renamed_columns)
 
