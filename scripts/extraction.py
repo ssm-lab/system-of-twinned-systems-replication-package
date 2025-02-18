@@ -19,7 +19,6 @@ pd.set_option('future.no_silent_downcasting', True)
 data_path = "data/Data extraction sheet.xlsx"
 results_path = "./output"
 
-# Need to clean up and categorize - domain, coordination, topology
 class Analysis:
     observation_map = {
         # 1: "papersByCountry", #Extra Stats
@@ -538,55 +537,134 @@ class Analysis:
         
     def sosTypeVsEmergence(self):
         df = self.df.copy()
-        renamed_columns = {
-            "Type of SoS": "SoS Type",
-            "Emergence": "Emergence"
-        }
-        df = df.rename(columns=renamed_columns)
+        df = df.rename(columns={"Type of SoS": "SoS Type", "Emergence": "Emergence"})
 
         df["Emergence"] = df["Emergence"].fillna("Not Considered")
-
         sos_vs_emergent = df.groupby(["SoS Type", "Emergence"]).size().unstack().fillna(0)
 
-        plt.figure(figsize=(12, 6))
-        sns.heatmap(
-            sos_vs_emergent, 
-            annot=True, 
-            cmap="Blues", 
-            fmt=".0f", 
-            linewidths=0.5, 
-            linecolor="lightgray"
-        )
+        # Sort SoS Types by total count
+        sos_vs_emergent["Total"] = sos_vs_emergent.sum(axis=1)
+        sos_vs_emergent = sos_vs_emergent.sort_values(by="Total", ascending=True)
+        sos_vs_emergent = sos_vs_emergent.drop(columns=["Total"]) 
 
-        plt.xlabel("Emergent Behavior", fontsize=12)
-        plt.ylabel("SoS Type", fontsize=12)
-        plt.title("Heatmap of SoS Type vs. Emergent Behavior", fontsize=14)
-        
+        sos_types = sos_vs_emergent.index.tolist()
+        emergence_types = sos_vs_emergent.columns.tolist()
+
+        colors = ["#ADEEE3", "#86DEB7", "#63B995", "#50723C"]
+
+        # Bar width and spacing
+        num_emergence = len(emergence_types)
+        bar_height = 0.7 / num_emergence  # Smaller bars within each SoS Type
+        y_positions = np.arange(len(sos_types))  # Main y-axis positions
+
+        fig, ax = plt.subplots(figsize=(10, 7))
+
+        # Plot bars for each emergence type within each SoS type
+        for i, (emergence, color) in enumerate(zip(emergence_types, colors)):
+            counts = sos_vs_emergent[emergence].values
+
+            # Offset bars within each SoS Type
+            bars = ax.barh(y_positions - (i - num_emergence / 2) * bar_height, counts, bar_height, label=emergence, color=color, alpha=0.9)
+
+            # Add text labels inside bars (Aligned to Start of Bar)
+            for bar, count in zip(bars, counts):
+                if count > 0:  # Only label non-zero values
+                    ax.text(bar.get_x() + 0.1,  # Small offset to the right
+                            bar.get_y() + bar.get_height() / 2,  
+                            f"{emergence} ({int(count)})", 
+                            ha="left", va="center", fontsize=11, color="black")
+
+        # Format labels
+        sos_labels = [
+            f"{sos} ({int(sos_vs_emergent.loc[sos].sum())})"
+            for sos in sos_types
+        ]
+        ax.set_yticks(y_positions)
+        ax.set_yticklabels(sos_labels, fontsize=13, ha="right")
+
+        # Remove unnecessary plot borders
+        ax.spines["right"].set_visible(False)
+        ax.spines["top"].set_visible(False)
+        ax.spines["bottom"].set_visible(False)
+
+        ax.set_xlabel("Count", fontsize=13)
+        ax.set_ylabel("SoS Type", fontsize=14, labelpad=10)
+        ax.set_title("SoS Type vs. Emergent Behavior", fontsize=16, pad=15)
+
+        # Remove x axis 
+        ax.set_xticks([])
+        ax.set_xticklabels([])
+        ax.set_xlabel("")  # Remove X-axis label
+
         self.savefig("sosTypeVsEmergence", upper_folder="RQ4")
-        
-        
+            
+            
 # =======================
 # RQ 5 
 # =======================
         
     def trlLevels(self):
+        warnings.simplefilter(action='ignore', category=FutureWarning)
         df = self.df.copy()
 
+        # Define TRL levels in the desired order
         trl_order = ["Initial", "Proof-of-Concept", "Demo prototype", "Deployed prototype", "Operational"]
         df["TRL"] = pd.Categorical(df["TRL"], categories=trl_order, ordered=True)
 
-        trl_counts = df["TRL"].value_counts().reindex(trl_order, fill_value=0) 
+        trl_counts = df["TRL"].value_counts().reindex(trl_order, fill_value=0)
 
-        plt.figure(figsize=(10, 6))
-        plt.bar(trl_counts.index, trl_counts.values, color="#85d4ff", edgecolor="black")
+        total_papers = trl_counts.sum()
+        trl_percentage = (trl_counts / total_papers) * 100
 
-        plt.xlabel("TRL Level", fontsize=12)
-        plt.ylabel("Number of Papers", fontsize=12)
-        plt.title("TRL Levels in Papers", fontsize=14)
+        trl_df = pd.DataFrame({
+            "TRL Level": trl_order,  
+            "Count": trl_counts.values,
+            "Percentage": trl_percentage.values
+        })
 
-        plt.grid(axis="y", linestyle="--", alpha=0.7)
+        # Reverse order for correct top-to-bottom plotting
+        trl_df = trl_df[::-1]
+
+        fig, ax = plt.subplots(figsize=(8, 5))
+        indexes = np.arange(len(trl_df))
+
+        bars = ax.barh(indexes, trl_df["Percentage"], color="#85d4ff")
+
+        # Label bars with TRL Level and Count
+        labels = [
+            f"{row['TRL Level']} ({row['Count']})" 
+            for _, row in trl_df.iterrows()
+        ]
+        
+        ax.set_yticks(indexes)
+        ax.set_yticklabels(labels, ha="left")
+
+        # Remove plot borders
+        ax.spines["right"].set_visible(False)
+        ax.spines["top"].set_visible(False)
+        ax.spines["bottom"].set_visible(False)
+
+        # Remove x-axis ticks and labels
+        ax.tick_params(axis="x", which="both", bottom=False, top=False, labelbottom=False)
+
+        # Adjust y-tick settings
+        ax.tick_params(axis="y", direction="out", pad=-10)
+        ax.yaxis.set_ticks_position("none")
+
+        # Title as rotated y-axis label
+        ax.set_ylabel("TRL Level", rotation=90, fontsize=12, labelpad=7)
+
+        # Adjust font sizes
+        labels = ax.get_yticklabels() + ax.get_xticklabels()
+        for label in labels:
+            label.set_fontsize(13)
+
+        # Adjust figure size
+        fig.set_size_inches(8, 0.33 * len(trl_df))
+        plt.tight_layout()
 
         self.savefig("trlLevels", upper_folder="RQ5")
+
         
         
     
@@ -594,36 +672,77 @@ class Analysis:
     def trlVsContributionType(self):
         df = self.df.copy()
 
+        # Define TRL order (Ensure it's explicitly ordered)
         trl_order = ["Initial", "Proof-of-Concept", "Demo prototype", "Deployed prototype", "Operational"]
         df["TRL"] = pd.Categorical(df["TRL"], categories=trl_order, ordered=True)
 
+        # Count occurrences of TRL and Contribution Type
         trl_contribution_counts = df.groupby(["TRL", "Contribution type"]).size().reset_index(name="Count")
 
+        # Pivot table for visualization
         pivot_df = trl_contribution_counts.pivot(index="TRL", columns="Contribution type", values="Count").fillna(0)
 
-        pivot_df.plot(
-            kind="bar", 
-            figsize=(12, 6), 
-            width=0.8, 
-            colormap="Set3",
-            edgecolor="black"
-        )
+        # Sort TRLs in predefined order (Ensure Initial is at the top)
+        pivot_df = pivot_df.reindex(trl_order[::-1])  # Reverse order to put Initial at the top
 
-        plt.xlabel("TRL Level", fontsize=12)
-        plt.ylabel("Number of Papers", fontsize=12)
-        plt.title("TRL Distribution Across Contribution Types", fontsize=14)
+        # Get TRL and Contribution type labels
+        trl_types = pivot_df.index.tolist()
+        contribution_types = pivot_df.columns.tolist()
 
-        capitalized_trl_order = [trl.title() for trl in trl_order]  
-        plt.xticks(ticks=range(len(trl_order)), labels=capitalized_trl_order, rotation=45)
+        # Define colors (adjust as needed)
+        colors = ["#ADEEE3", "#86DEB7", "#63B995", "#50723C"]
 
-        plt.grid(axis="y", linestyle="--", alpha=0.7)
-        plt.legend(title="Contribution Type", bbox_to_anchor=(1.05, 1), loc="upper left")
+        # Bar settings
+        num_contributions = len(contribution_types)
+        bar_height = 0.7 / num_contributions  # Ensure sub-bars fit within each TRL category
+        y_positions = np.arange(len(trl_types))  # Main y-axis positions (reversed for correct order)
 
+        fig, ax = plt.subplots(figsize=(10, 7))
+
+        # Plot bars for each Contribution Type within each TRL
+        for i, (contribution, color) in enumerate(zip(contribution_types, colors)):
+            counts = pivot_df[contribution].values
+
+            # Offset bars within each TRL Type
+            bars = ax.barh(y_positions - (i - num_contributions / 2) * bar_height, counts, bar_height, 
+                        label=contribution, color=color, alpha=0.9)
+
+            # Add text labels inside bars (Aligned to Start of Bar)
+            for bar, count in zip(bars, counts):
+                if count > 0:  # Only label non-zero values
+                    ax.text(bar.get_x() + 0.1,  # Small offset to the right
+                            bar.get_y() + bar.get_height() / 2,  
+                            f"{contribution} ({int(count)})", 
+                            ha="left", va="center", fontsize=11, color="black")
+
+        # Format labels (Ensure Initial is at the top)
+        trl_labels = [
+            f"{trl} ({int(pivot_df.loc[trl].sum())})"
+            for trl in trl_types
+        ]
+        ax.set_yticks(y_positions)
+        ax.set_yticklabels(trl_labels, fontsize=13, ha="right")
+
+        # Remove unnecessary plot borders
+        ax.spines["right"].set_visible(False)
+        ax.spines["top"].set_visible(False)
+        ax.spines["bottom"].set_visible(False)
+
+        # Remove x-axis labels and ticks
+        ax.set_xticks([])
+        ax.set_xticklabels([])
+        ax.set_xlabel("")  
+
+        # Set title and labels
+        ax.set_ylabel("TRL Level", fontsize=14, labelpad=10)
+        ax.set_title("TRL Levels vs. Contribution Types", fontsize=16, pad=15)
+
+        # Save the figure
         self.savefig("trlVsContributionType", upper_folder="RQ5")
 
                            
 # =======================
-# RQ Saving and Running Script 
+# Saving and Running Script 
 # =======================
     def savefig(self, func_name, file_type="pdf", upper_folder="overall"):
         filename = func_name.replace(" ", "_").replace("-", "_")
