@@ -215,7 +215,6 @@ class Analysis:
 
 
  
-        
     def topologyExtraction(self):
         warnings.simplefilter(action='ignore', category=FutureWarning)
         df = self.df.copy()
@@ -249,34 +248,103 @@ class Analysis:
 
         bars = ax.barh(indexes, topology_counts["Percentage"], color="#85d4ff")
 
-        # Labels with percentages
-        labels = [f"{row['Topology']} \u2014 {row['Percentage']:.1f}%" for _, row in topology_counts.iterrows()]
-        plt.yticks(indexes, labels)
+        labels = [
+            f"{row['Topology']} ({row['Count']}) \u2014 {row['Percentage']:.1f}%" 
+            for _, row in topology_counts.iterrows()
+        ]
+        
+        ax.set_yticks(indexes)
+        ax.set_yticklabels(labels, ha="left")
 
         # Remove plot borders
         ax.spines["right"].set_visible(False)
         ax.spines["top"].set_visible(False)
         ax.spines["bottom"].set_visible(False)
 
-        plt.tick_params(axis="x", which="both", bottom=False, top=False, labelbottom=False)
+        # Remove x-axis ticks and labels
+        ax.tick_params(axis="x", which="both", bottom=False, top=False, labelbottom=False)
 
+        # Adjust y-tick settings
         ax.tick_params(axis="y", direction="out", pad=-10)
-        ax.yaxis.set_ticks_position("none") 
-        ax.set_yticklabels(labels, ha="left")  
+        ax.yaxis.set_ticks_position("none")
 
-        # Title and labels
-        ax.set_xlabel("Percentage of Papers", fontsize=12)
-        ax.set_ylabel("Topology Type", fontsize=12, labelpad=10)
-        plt.title("Distribution of Topologies Mentioned", fontsize=14)
+        # Title as rotated y-axis label
+        ax.set_ylabel("Topology Type", rotation=90, fontsize=12, labelpad=7)
 
+        # Adjust font sizes
         labels = ax.get_yticklabels() + ax.get_xticklabels()
         for label in labels:
             label.set_fontsize(13)
 
-        fig.set_size_inches(8, 4)
+        # Adjust figure size
+        fig.set_size_inches(8, 0.33 * len(topology_counts))
         plt.tight_layout()
 
         self.savefig("topologyExtraction")
+        
+        
+        
+        
+        
+    def coordinationExtraction(self):
+        warnings.simplefilter(action='ignore', category=FutureWarning)
+        df = self.df.copy()
+
+        categories = ["Peer-to-Peer (P2P)", "DT Orchestrated", "No Control", "System Orchestrated", "Hybrid"]
+
+        for topology in categories:
+            df[topology] = df["Coordination (Cleaned)"].apply(lambda x: 1 if topology in x else 0)
+
+        counts = pd.DataFrame({
+            "Coordination": categories, 
+            "Count": [df[topology].sum() for topology in categories] 
+        })
+
+        total_papers = counts["Count"].sum()
+        counts["Percentage"] = (counts["Count"] / total_papers) * 100
+
+        counts = counts.sort_values(by="Percentage", ascending=True)
+
+        fig, ax = plt.subplots(figsize=(8, 5))
+        indexes = np.arange(len(counts))
+
+        bars = ax.barh(indexes, counts["Percentage"], color="#85d4ff")
+
+        labels = [
+            f"{row['Coordination']} ({row['Count']}) \u2014 {row['Percentage']:.1f}%" 
+            for _, row in counts.iterrows()
+        ]
+        
+        ax.set_yticks(indexes)
+        ax.set_yticklabels(labels, ha="left")
+
+        # Remove plot borders
+        ax.spines["right"].set_visible(False)
+        ax.spines["top"].set_visible(False)
+        ax.spines["bottom"].set_visible(False)
+
+        # Remove x-axis ticks and labels
+        ax.tick_params(axis="x", which="both", bottom=False, top=False, labelbottom=False)
+
+        # Adjust y-tick settings
+        ax.tick_params(axis="y", direction="out", pad=-10)
+        ax.yaxis.set_ticks_position("none")
+
+        # Title as rotated y-axis label
+        ax.set_ylabel("Topology Type", rotation=90, fontsize=12, labelpad=7)
+
+        # Adjust font sizes
+        labels = ax.get_yticklabels() + ax.get_xticklabels()
+        for label in labels:
+            label.set_fontsize(13)
+
+        # Adjust figure size
+        fig.set_size_inches(8, 0.33 * len(counts))
+        plt.tight_layout()
+
+        self.savefig("coordinationExtraction")
+        
+
 
 
 
