@@ -22,18 +22,20 @@ results_path = "./output"
 # Need to clean up and categorize - domain, coordination, topology
 class Analysis:
     observation_map = {
-        1: "papersByCountry", #Extra Stats
+        # 1: "papersByCountry", #Extra Stats
         # 2: "distributionOfQualityScores", #Extra Stats
         # 3: "publicationTrendsOverTime", #Extra Stats
-        4: "intentOfSoSDT", # RQ1
-        12: "motivationsTable", #RQ1
-        5: "topologyExtraction", #RQ2
-        6: "dtClassDistribution", # RQ3
+        1: "intentOfSoSDT", # RQ1
+        2: "motivationsTable", #RQ1
+        3: "topologyExtraction", #RQ2
+        4: "coordinationExtraction", #RQ2
+        5: "dtClassDistribution", # RQ3
+        6: "levelOfIntegration", #RQ3
         # 7: "sosDimensionsHeatmap",# RQ4
-        8: "sosDimensionsRadar", # RQ4
-        9: "sosTypeVsEmergence", #RQ4
-        10: "trlLevels", #RQ5
-        11: "trlVsContributionType", #RQ5
+        7: "sosDimensionsRadar", # RQ4
+        8: "sosTypeVsEmergence", #RQ4
+        9: "trlLevels", #RQ5
+        10: "trlVsContributionType", #RQ5
     }
 
     def __init__(self):
@@ -162,7 +164,7 @@ class Analysis:
             font=dict(size=20),
         )
 
-        file_path = os.path.join(results_path, "intentOfSoSDT.png")
+        file_path = os.path.join(results_path, "RQ1/intentOfSoSDT.png")
         fig.write_image(file_path, scale=2)
 
 
@@ -211,7 +213,7 @@ class Analysis:
 
             return latex_table
 
-        self.saveLatex("motivations", generate_latex_table(summary_df))
+        self.saveLatex("RQ1/motivations", generate_latex_table(summary_df))
 
 
  
@@ -269,7 +271,7 @@ class Analysis:
         ax.yaxis.set_ticks_position("none")
 
         # Title as rotated y-axis label
-        ax.set_ylabel("Topology Type", rotation=90, fontsize=12, labelpad=7)
+        ax.set_ylabel("Topology", rotation=90, fontsize=12, labelpad=7)
 
         # Adjust font sizes
         labels = ax.get_yticklabels() + ax.get_xticklabels()
@@ -280,7 +282,7 @@ class Analysis:
         fig.set_size_inches(8, 0.33 * len(topology_counts))
         plt.tight_layout()
 
-        self.savefig("topologyExtraction")
+        self.savefig("topologyExtraction", upper_folder="RQ2")
         
         
         
@@ -292,12 +294,12 @@ class Analysis:
 
         categories = ["Peer-to-Peer (P2P)", "DT Orchestrated", "No Control", "System Orchestrated", "Hybrid"]
 
-        for topology in categories:
-            df[topology] = df["Coordination (Cleaned)"].apply(lambda x: 1 if topology in x else 0)
+        for cat in categories:
+            df[cat] = df["Coordination (Cleaned)"].apply(lambda x: 1 if cat in x else 0)
 
         counts = pd.DataFrame({
             "Coordination": categories, 
-            "Count": [df[topology].sum() for topology in categories] 
+            "Count": [df[cat].sum() for cat in categories] 
         })
 
         total_papers = counts["Count"].sum()
@@ -331,7 +333,7 @@ class Analysis:
         ax.yaxis.set_ticks_position("none")
 
         # Title as rotated y-axis label
-        ax.set_ylabel("Topology Type", rotation=90, fontsize=12, labelpad=7)
+        ax.set_ylabel("Coordination", rotation=90, fontsize=12, labelpad=7)
 
         # Adjust font sizes
         labels = ax.get_yticklabels() + ax.get_xticklabels()
@@ -342,7 +344,7 @@ class Analysis:
         fig.set_size_inches(8, 0.33 * len(counts))
         plt.tight_layout()
 
-        self.savefig("coordinationExtraction")
+        self.savefig("coordinationExtraction", upper_folder="RQ2")
         
 
 
@@ -400,9 +402,67 @@ class Analysis:
             font=dict(size=20),
         )
 
-        file_path = os.path.join(results_path, "dtClassDistribution.png")
+        file_path = os.path.join(results_path, "RQ3/dtClassDistribution.png")
         fig.write_image(file_path, scale=2)
         
+        
+    def levelOfIntegration(self):
+        warnings.simplefilter(action='ignore', category=FutureWarning)
+        df = self.df.copy()
+
+        categories = ["Data Exchange", "Model Exchange", "Co-Simulation"]
+
+        for cat in categories:
+            df[cat] = df["Level of Integration (Cleaned)"].apply(lambda x: 1 if cat in x else 0)
+
+        counts = pd.DataFrame({
+            "Level of Integration": categories, 
+            "Count": [df[cat].sum() for cat in categories] 
+        })
+
+        total_papers = counts["Count"].sum()
+        counts["Percentage"] = (counts["Count"] / total_papers) * 100
+
+        counts = counts.sort_values(by="Percentage", ascending=True)
+
+        fig, ax = plt.subplots(figsize=(8, 5))
+        indexes = np.arange(len(counts))
+
+        bars = ax.barh(indexes, counts["Percentage"], color="#85d4ff")
+
+        labels = [
+            f"{row['Level of Integration']} ({row['Count']}) \u2014 {row['Percentage']:.1f}%" 
+            for _, row in counts.iterrows()
+        ]
+        
+        ax.set_yticks(indexes)
+        ax.set_yticklabels(labels, ha="left")
+
+        # Remove plot borders
+        ax.spines["right"].set_visible(False)
+        ax.spines["top"].set_visible(False)
+        ax.spines["bottom"].set_visible(False)
+
+        # Remove x-axis ticks and labels
+        ax.tick_params(axis="x", which="both", bottom=False, top=False, labelbottom=False)
+
+        # Adjust y-tick settings
+        ax.tick_params(axis="y", direction="out", pad=-10)
+        ax.yaxis.set_ticks_position("none")
+
+        # Title as rotated y-axis label
+        ax.set_ylabel("Integration", rotation=90, fontsize=12, labelpad=7)
+
+        # Adjust font sizes
+        labels = ax.get_yticklabels() + ax.get_xticklabels()
+        for label in labels:
+            label.set_fontsize(13)
+
+        # Adjust figure size
+        fig.set_size_inches(8, 0.33 * len(counts))
+        plt.tight_layout()
+
+        self.savefig("levelOfIntegration", upper_folder="RQ3")
 
         
     def sosDimensionsHeatmap(self):
@@ -418,47 +478,54 @@ class Analysis:
         sns.heatmap(sos_dim.corr(), annot=True, cmap="coolwarm_r", fmt=".2f", linewidths=0.5)
 
         plt.title("Correlation Heatmap of SoS Dimensions")
-        self.savefig("sosDimensionsHeatmap")
+        self.savefig("sosDimensionsHeatmap", upper_folder="RQ4")
         
         
     def sosDimensionsRadar(self):
         df = self.df.copy()
-        
+    
         sos_dimensions = [str(col) for col in df.columns if isinstance(col, str) and col.startswith("SoS:")]
 
-        mapping = {"No": 0, "Partial": 0.5, "Yes": 1}
-        sos_dim = df[sos_dimensions].replace(mapping).astype(float)
+        mapping = {"No": 0, "Partial": 1, "Yes": 1}
+        sos_dim = df[sos_dimensions].replace(mapping).astype(int)
 
         renamed_dimensions = {col: col.replace("SoS: ", "") for col in sos_dimensions}
         sos_dim = sos_dim.rename(columns=renamed_dimensions)
 
-        avg_scores = sos_dim.mean()
+        # Compute frequencies
+        freq_counts = sos_dim.sum()
+        total_papers = len(df)  # Total number of papers for reference
+        freq_percentage = (freq_counts / total_papers) * 100  # Convert to percentage
 
-        labels = avg_scores.index
-        values = avg_scores.values
+        # Labels and values
+        labels = [f"{dim} ({percent:.1f}%)" for dim, percent in zip(freq_percentage.index, freq_percentage.values)]
+        values = freq_percentage.values
         num_vars = len(labels)
 
         # Compute angles for radar chart
         angles = np.linspace(0, 2 * np.pi, num_vars, endpoint=False).tolist()
-        values = np.concatenate((values, [values[0]]))
+        values = np.concatenate((values, [values[0]]))  # Close the circle
         angles += [angles[0]]
 
         fig, ax = plt.subplots(figsize=(9, 9), subplot_kw=dict(polar=True))
         ax.fill(angles, values, color="#85d4ff", alpha=0.3)
         ax.plot(angles, values, color="#85d4ff", linewidth=3, linestyle="solid")
 
-        # Add text labels for numerical values
-        for angle, value, label in zip(angles[:-1], values[:-1], labels):
-            ax.text(angle, value + 0.05, f"{value:.2f}", ha="center", fontsize=12, color="black")
-            
         ax.set_yticklabels([])
         ax.set_xticks(angles[:-1])
-        ax.set_xticklabels(labels, fontsize=12)
 
-        plt.title("SoS Dimensions", fontsize=16, pad=20)
-        ax.spines["polar"].set_visible(False)  # Hide outer circle
+        # ax.set_xticklabels(labels, fontsize=14, ha="center", va="center_baseline", wrap=True, bbox=dict(facecolor='white', alpha=0.7, edgecolor='none', boxstyle="round,pad=0.3"), zorder=3) 
+        for angle, label in zip(angles[:-1], labels):
+            ax.text(angle, max(values) * 1.1, label, ha="center", va="center",
+                    fontsize=12, color="black",
+                    bbox=dict(facecolor='white', edgecolor='none', boxstyle="round,pad=0.3"),
+                    zorder=3)  # Ensure text is on top
 
-        self.savefig("sosDimensionsRadar")
+
+        plt.title("SoS Dimensions", fontsize=20, pad=20, )
+        ax.spines["polar"].set_visible(False) 
+
+        self.savefig("sosDimensionsRadar", upper_folder="RQ4")
 
         
         
@@ -488,7 +555,7 @@ class Analysis:
         plt.ylabel("SoS Type", fontsize=12)
         plt.title("Heatmap of SoS Type vs. Emergent Behavior", fontsize=14)
         
-        self.savefig("sosTypeVsEmergence")
+        self.savefig("sosTypeVsEmergence", upper_folder="RQ4")
         
         
     def trlLevels(self):
@@ -508,7 +575,7 @@ class Analysis:
 
         plt.grid(axis="y", linestyle="--", alpha=0.7)
 
-        self.savefig("trlLevels")
+        self.savefig("trlLevels", upper_folder="RQ5")
         
         
     
@@ -541,18 +608,23 @@ class Analysis:
         plt.grid(axis="y", linestyle="--", alpha=0.7)
         plt.legend(title="Contribution Type", bbox_to_anchor=(1.05, 1), loc="upper left")
 
-        self.savefig("trlVsContributionType")
+        self.savefig("trlVsContributionType", upper_folder="RQ5")
 
                            
 
-    def savefig(self, func_name, file_type = "pdf"):
+    def savefig(self, func_name, file_type="pdf", upper_folder="overall"):
         filename = func_name.replace(" ", "_").replace("-", "_")
-        file_path = os.path.join(results_path, f"{filename}.{file_type}")
+        folder_path = os.path.join(results_path, upper_folder)
+
+        # Ensure the folder exists
+        os.makedirs(folder_path, exist_ok=True)
+
+        file_path = os.path.join(folder_path, f"{filename}.{file_type}")
 
         # Remove any existing file with the same name
-        for existing_file in os.listdir(results_path):
+        for existing_file in os.listdir(folder_path):
             if existing_file.startswith(filename):
-                os.remove(os.path.join(results_path, existing_file))
+                os.remove(os.path.join(folder_path, existing_file))
 
         plt.gcf().tight_layout()
         plt.savefig(file_path, dpi=900)  
