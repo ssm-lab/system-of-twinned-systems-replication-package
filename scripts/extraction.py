@@ -116,7 +116,11 @@ class Analysis:
         plt.grid(axis="y", linestyle="--", alpha=0.7)
 
         self.savefig("publicationTrendsOverTime")
-        
+      
+      
+# =======================
+# RQ 1 
+# =======================  
         
     def intentOfSoSDT(self, threshold=1):
         df = self.df.copy()
@@ -215,7 +219,9 @@ class Analysis:
 
         self.saveLatex("RQ1/motivations", generate_latex_table(summary_df))
 
-
+# =======================
+# RQ 2
+# =======================
  
     def topologyExtraction(self):
         warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -285,9 +291,6 @@ class Analysis:
         self.savefig("topologyExtraction", upper_folder="RQ2")
         
         
-        
-        
-        
     def coordinationExtraction(self):
         warnings.simplefilter(action='ignore', category=FutureWarning)
         df = self.df.copy()
@@ -349,9 +352,9 @@ class Analysis:
 
 
 
-
-        
-
+# =======================
+# RQ 3 
+# =======================
     def dtClassDistribution(self):
         df = self.df.copy()
         
@@ -464,7 +467,11 @@ class Analysis:
 
         self.savefig("levelOfIntegration", upper_folder="RQ3")
 
-        
+     
+     
+# =======================
+# RQ 4 
+# =======================   
     def sosDimensionsHeatmap(self):
         sos_dimensions = [str(col) for col in self.df.columns if isinstance(col, str) and col.startswith("SoS:")]
         
@@ -558,6 +565,10 @@ class Analysis:
         self.savefig("sosTypeVsEmergence", upper_folder="RQ4")
         
         
+# =======================
+# RQ 5 
+# =======================
+        
     def trlLevels(self):
         df = self.df.copy()
 
@@ -611,7 +622,9 @@ class Analysis:
         self.savefig("trlVsContributionType", upper_folder="RQ5")
 
                            
-
+# =======================
+# RQ Saving and Running Script 
+# =======================
     def savefig(self, func_name, file_type="pdf", upper_folder="overall"):
         filename = func_name.replace(" ", "_").replace("-", "_")
         folder_path = os.path.join(results_path, upper_folder)
