@@ -10,6 +10,7 @@ import seaborn as sns
 from matplotlib.ticker import MultipleLocator, FuncFormatter
 import plotly.express as px
 import plotly.graph_objects as go
+import matplotlib.gridspec as gridspec
 
 import pandas as pd
 import numpy as np
@@ -37,6 +38,7 @@ class Analysis:
         9: "trlLevels", #RQ5
         10: "trlVsContributionType", #RQ5
         11: "standardsTable", #RQ5
+        12: "frameworksBarCharts", #RQ2
     }
 
     def __init__(self):
@@ -385,6 +387,122 @@ class Analysis:
 
         self.savefig("coordinationExtraction", upper_folder="RQ2")
         
+        
+        
+    def frameworksBarCharts(self, threshold=1):
+        df = self.df.copy()
+        df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
+        
+        framework_columns = {
+            "Digital Twin & IoT": "DT/IoT", 
+            "Modeling & Simulation": "Modeling/Sim", 
+            "AI, Data Analytics & Machine Learning": "Analytics", 
+            "Cloud, Edge, and DevOps": "", 
+            "Systems Engineering & Architecture": "Arch", 
+            "Data Management": "Data Mgmt", 
+            "Geospatial & Visualization Technologies": "Geo/Viz", 
+            "Application Development & Web Technologies": "App/Web Dev"
+        }
+        
+        data_list = []
+        
+        for full_col, short_label in framework_columns.items():
+            # Extract individual frameworks.
+            # Assumes each cell is a comma-separated list.
+            rows = []
+            for _, row in df.iterrows():
+                cell = row[full_col]
+                if pd.isna(cell):
+                    continue
+                frameworks_list = [fw.strip() for fw in str(cell).split(",") if fw.strip()]
+                for fw in frameworks_list:
+                    rows.append({
+                        "Framework": fw,
+                        "Paper ID": row["Paper ID"]
+                    })
+            
+            # If no data found for this column, skip.
+            if not rows:
+                continue
+            
+            exploded_df = pd.DataFrame(rows)
+            
+            # Group by framework to count the number of unique papers.
+            summary_df = exploded_df.groupby("Framework").agg(
+                Paper_Count=("Paper ID", "nunique")
+            ).reset_index()
+            
+            # Group frameworks that appear in <= threshold papers into "Other".
+            mask = summary_df["Paper_Count"] <= threshold
+            other_count = summary_df.loc[mask, "Paper_Count"].sum()
+            other_row = None
+            if mask.sum() > 0:
+                other_row = pd.DataFrame([{"Framework": "Other", "Paper_Count": other_count}])
+                summary_df = summary_df[~mask]
+            
+            # Sort the remaining frameworks by Paper_Count (ascending, so the smallest is at top).
+            summary_df = summary_df.sort_values(by="Paper_Count", ascending=True)
+            if other_row is not None:
+                summary_df = pd.concat([summary_df, other_row], ignore_index=True)
+            
+            # Calculate percentages.
+            total = summary_df["Paper_Count"].sum()
+            summary_df["Percentage"] = (summary_df["Paper_Count"] / total) * 100
+            
+            # Save the processed data.
+            data_list.append((full_col, short_label, summary_df, len(summary_df)))
+        
+        # If no valid data, exit.
+        if not data_list:
+            print("No data found for any framework categories.")
+            return
+        
+        # Compute total height for the figure.
+        total_relative_height = sum([n for (_, _, _, n) in data_list])
+        total_height = 0.33 * total_relative_height + 2  # add extra margin
+        
+        # Create a figure with subplots arranged vertically.
+        n_subplots = len(data_list)
+        height_ratios = [n for (_, _, _, n) in data_list]
+        
+        fig = plt.figure(figsize=(8, total_height))
+        gs = gridspec.GridSpec(n_subplots, 1, height_ratios=height_ratios, hspace=0.6)
+        
+        # Loop through each category and plot in its respective subplot.
+        for i, (full_col, short_label, summary_df, n_rows) in enumerate(data_list):
+            ax = fig.add_subplot(gs[i])
+            indexes = np.arange(len(summary_df))
+            ax.barh(indexes, summary_df["Percentage"], color="#85d4ff")
+            
+            # Create labels like: "Framework (Count) — Percentage%"
+            labels = [
+                f"{row['Framework']} ({row['Paper_Count']}) — {row['Percentage']:.1f}%"
+                for _, row in summary_df.iterrows()
+            ]
+            ax.set_yticks(indexes)
+            ax.set_yticklabels(labels, ha="left")
+            
+            # Remove plot borders and x-axis ticks/labels.
+            ax.spines["right"].set_visible(False)
+            ax.spines["top"].set_visible(False)
+            ax.spines["bottom"].set_visible(False)
+            ax.tick_params(axis="x", which="both", bottom=False, top=False, labelbottom=False)
+            ax.tick_params(axis="y", direction="out", pad=-10)
+            ax.yaxis.set_ticks_position("none")
+            
+            # Use the short label as the rotated y-axis title.
+            ax.set_ylabel(short_label, rotation=90, fontsize=12, labelpad=7)
+            
+            # Adjust font sizes.
+            for label in ax.get_yticklabels() + ax.get_xticklabels():
+                label.set_fontsize(13)
+        
+        plt.tight_layout()
+        self.savefig("frameworksBarCharts", upper_folder="RQ2")
+
+
+
+            
 
 
 
@@ -392,58 +510,64 @@ class Analysis:
 # RQ 3 
 # =======================
     def dtClassDistribution(self):
+        warnings.simplefilter(action='ignore', category=FutureWarning)
+        
         df = self.df.copy()
         
-        def classify_group(dt_class):
-            if dt_class in ["Human-actuated digital twin", "Human-supervised digital twin", "Digital twin"]:
-                return "Digital Twin Related"
-            elif dt_class == "Digital shadow":
-                return "Non Digital Twins Related"
-            elif dt_class == "Digital model":
-                return "Non Digital Twins Related"
-            else:
-                return "Other"
-
-        df["DT Class Grouped"] = df["DT Class"].apply(classify_group)
-
-        dt_class_counts = df.groupby(["DT Class Grouped", "DT Class"]).size().reset_index(name="Count")
-        total_count = dt_class_counts["Count"].sum()
-
-        dt_class_counts["Percentage"] = dt_class_counts["Count"] / total_count * 100
-
-        fig = px.treemap(
-            dt_class_counts,
-            path=["DT Class Grouped", "DT Class"],
-            values="Count",
-            title="Treemap of DT Class Distribution",
-            color="DT Class Grouped",
-            color_discrete_sequence=px.colors.qualitative.Set2,
-            custom_data=["Count", "Percentage"]
-        )
-
-        fig.update_traces(
-            textinfo="label+text+value", 
-            texttemplate="<b>%{label}</b><br>%{value} (%{customdata[1]:.1f}%)",
-            insidetextfont=dict(size=20),  
-            outsidetextfont=dict(size=22) 
-        )
-
-        fig.update_layout(
-            width=1500,
-            height=1000,
-            title={
-                "y": 0.92, 
-                "x": 0.5, 
-                "xanchor": "center",
-                "yanchor": "top",
-                "font": dict(size=24)
-            },
-            font=dict(size=20),
-        )
-
-        file_path = os.path.join(results_path, "RQ3/dtClassDistribution.png")
-        fig.write_image(file_path, scale=2)
+        # Define the DT related classes
+        dt_related = ["Human-actuated digital twin", "Human-supervised digital twin", "Digital twin"]
         
+        # Group by DT Class only
+        dt_class_counts = df.groupby("DT Class").size().reset_index(name="Count")
+        total_count = dt_class_counts["Count"].sum()
+        dt_class_counts["Percentage"] = dt_class_counts["Count"] / total_count * 100
+        
+        # Mark DT related classes for ordering
+        dt_class_counts["Is_DT_Related"] = dt_class_counts["DT Class"].apply(
+            lambda x: 0 if x in dt_related else 1
+        )
+        
+        # Sort so that DT related classes (Is_DT_Related=1) appear at the top.
+        # Within each group, sort by percentage in ascending order.
+        dt_class_counts = dt_class_counts.sort_values(
+            by=["Is_DT_Related", "Percentage"], ascending=[False, True]
+        )
+        
+        # Create a horizontal bar chart
+        fig, ax = plt.subplots(figsize=(8, 0.33 * len(dt_class_counts)))
+        indexes = np.arange(len(dt_class_counts))
+        bars = ax.barh(indexes, dt_class_counts["Percentage"], color="#85d4ff")
+        
+        # Format the y-axis labels: "DT Class (Count) — Percentage%"
+        labels = [
+            f"{row['DT Class']} ({row['Count']}) \u2014 {row['Percentage']:.1f}%"
+            for _, row in dt_class_counts.iterrows()
+        ]
+        
+        ax.set_yticks(indexes)
+        ax.set_yticklabels(labels, ha="left")
+        
+        # Remove unnecessary plot borders and ticks for a cleaner look
+        ax.spines["right"].set_visible(False)
+        ax.spines["top"].set_visible(False)
+        ax.spines["bottom"].set_visible(False)
+        ax.tick_params(axis="x", which="both", bottom=False, top=False, labelbottom=False)
+        ax.tick_params(axis="y", direction="out", pad=-10)
+        ax.yaxis.set_ticks_position("none")
+        
+        # Set the y-axis label (rotated)
+        ax.set_ylabel("DT Class", rotation=90, fontsize=12, labelpad=7)
+        
+        # Adjust tick label font sizes
+        for label in ax.get_yticklabels() + ax.get_xticklabels():
+            label.set_fontsize(13)
+        
+        plt.tight_layout()
+        
+        # Save the figure using the class's savefig method
+        self.savefig("dtClassDistribution", upper_folder="RQ3")
+
+            
         
     def levelOfIntegration(self):
         warnings.simplefilter(action='ignore', category=FutureWarning)
