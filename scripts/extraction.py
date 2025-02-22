@@ -7,8 +7,9 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from upsetplot import UpSet
+from matplotlib.ticker import MultipleLocator, FuncFormatter
 import plotly.express as px
+import plotly.graph_objects as go
 
 import pandas as pd
 import numpy as np
@@ -35,6 +36,7 @@ class Analysis:
         8: "sosTypeVsEmergence", #RQ4
         9: "trlLevels", #RQ5
         10: "trlVsContributionType", #RQ5
+        11: "standardsTable", #RQ5
     }
 
     def __init__(self):
@@ -121,56 +123,92 @@ class Analysis:
 # RQ 1 
 # =======================  
         
-    def intentOfSoSDT(self, threshold=1):
+    def intentOfSoSDT(self):
         df = self.df.copy()
 
+       # Group by "Intent" and "Domain (Aggregated)" to get counts
         intent_domain_counts = df.groupby(["Intent", "Domain (Aggregated)"]).size().reset_index(name="Count")
-        total_count = intent_domain_counts["Count"].sum()
 
-        intent_domain_counts["Percentage"] = (intent_domain_counts["Count"] / total_count) * 100
+        # Pivot the data so that rows are domains and columns are intents
+        pivot_df = intent_domain_counts.pivot(index="Domain (Aggregated)", columns="Intent", values="Count").fillna(0)
 
-        threshold_mask = intent_domain_counts["Count"] <= threshold
-        other_group = intent_domain_counts[threshold_mask].groupby("Intent")["Count"].sum().reset_index()
-        other_group["Domain (Aggregated)"] = "Other"
-        other_group["Percentage"] = (other_group["Count"] / total_count) * 100
+        # Ensure we have the two expected intents. If available, use them:
+        if "DT" in pivot_df.columns and "SoS" in pivot_df.columns:
+            dt_col = "DT"
+            sos_col = "SoS"
+        else:
+            # Fallback: use the first column as DT and the second as SoS
+            dt_col, sos_col = pivot_df.columns[0], pivot_df.columns[1]
 
-        intent_domain_counts = intent_domain_counts[~threshold_mask]
-        intent_domain_counts = pd.concat([intent_domain_counts, other_group], ignore_index=True)
-        
-        fig = px.treemap(
-            intent_domain_counts, 
-            path=["Intent", "Domain (Aggregated)"], 
-            values="Count",
-            title="Treemap of Intent and Domain Based on Frequency",
-            color="Intent",
-            color_discrete_sequence=px.colors.qualitative.Set2,
-            custom_data=["Count", "Percentage"]
-        )
+        # Create ordering groups using the original (non-mirrored) counts:
+        # Group 1: SoS-exclusive (DT==0 and SoS>0)
+        # Group 2: Common (DT>0 and SoS>0)
+        # Group 3: DT-exclusive (DT>0 and SoS==0)
+        pivot_df["order_group"] = 2  # default: common
+        pivot_df.loc[(pivot_df[dt_col] == 0) & (pivot_df[sos_col] > 0), "order_group"] = 1
+        pivot_df.loc[(pivot_df[dt_col] > 0) & (pivot_df[sos_col] == 0), "order_group"] = 3
 
-        fig.update_traces(
-            textinfo="label+text+value",
-            texttemplate="<b>%{label}</b><br>%{value} (%{customdata[1]:.1f}%)",
-            insidetextfont=dict(size=20),  
-            outsidetextfont=dict(size=22) 
-        )
+        # Compute the difference for further ordering (SoS minus DT)
+        pivot_df["difference"] = pivot_df[sos_col] - pivot_df[dt_col]
+
+        # Now sort first by the defined group and then by the difference (descending)
+        pivot_df = pivot_df.sort_values(by=["order_group", "difference"], ascending=[True, False])
+        y_categories = pivot_df.index.tolist()
+
+        # Mirror the DT column for plotting (so that DT bars extend to the left)
+        pivot_df["DT_mirrored"] = -pivot_df[dt_col]
+
+        # Create the mirror (population pyramid–style) horizontal bar chart using Plotly
+        fig = go.Figure()
+
+        # Trace for DT (mirrored to the left)
+        fig.add_trace(go.Bar(
+            y=y_categories,
+            x=[pivot_df.loc[domain, "DT_mirrored"] for domain in y_categories],
+            name=dt_col,
+            orientation='h',
+            marker_color='rgb(222,45,38)',
+            text=[f"{pivot_df.loc[domain, dt_col]:.0f}" for domain in y_categories],
+            textposition='inside',
+            hovertemplate='Domain: %{y}<br>' + dt_col + ': %{text}<extra></extra>',
+        ))
+
+        # Trace for SoS (to the right)
+        fig.add_trace(go.Bar(
+            y=y_categories,
+            x=[pivot_df.loc[domain, sos_col] for domain in y_categories],
+            name=sos_col,
+            orientation='h',
+            marker_color='rgb(49,130,189)',
+            text=[f"{pivot_df.loc[domain, sos_col]:.0f}" for domain in y_categories],
+            textposition='inside',
+            hovertemplate='Domain: %{y}<br>' + sos_col + ': %{text}<extra></extra>',
+        ))
+
+        # Determine a common maximum for symmetry
+        max_count = max(pivot_df[dt_col].max(), pivot_df[sos_col].max())
 
         fig.update_layout(
-            width=1500,
-            height=1000,
-            title={
-                "y": 0.92, 
-                "x": 0.5, 
-                "xanchor": "center",
-                "yanchor": "top",
-                "font": dict(size=24)
-            },
-            font=dict(size=20),
+            title="Mirror Density Histogram of Intent by Domain",
+            barmode='overlay',
+            bargap=0.1,
+            xaxis=dict(
+                tickvals=[-max_count, -max_count/2, 0, max_count/2, max_count],
+                ticktext=[str(max_count), str(int(max_count/2)), "0", str(int(max_count/2)), str(max_count)],
+                title="Count",
+            ),
+            yaxis=dict(
+                title="Domain",
+                automargin=True,
+            ),
+            width=1200,
+            height=800,
+            font=dict(size=16),
+            legend=dict(title="Intent")
         )
 
         file_path = os.path.join(results_path, "RQ1/intentOfSoSDT.png")
         fig.write_image(file_path, scale=2)
-
-
         
         
     def motivationsTable(self):
@@ -187,23 +225,22 @@ class Analysis:
 
         summary_df = df.groupby(motivation_column).agg(
             Paper_Count=("Paper ID", "count"),
-            Citations=(citation_column, lambda x: f"\\citepPS{{{', '.join(x.dropna().unique())}}}" if x.dropna().any() else "\\citepPS{placeholder}")
-            # Citations=(citation_column, lambda x: ", ".join(f"\\citePS{{{cite}}}" for cite in x.dropna().unique()) if x.dropna().any() else "\\citePS{placeholder}")
+            Citations=(citation_column, lambda x: ", ".join([f"\\citepPS{{{cite}}}" for cite in x.dropna().unique()]) 
+                                            if not x.dropna().empty else "\\citepPS{placeholder}")
         ).reset_index()
 
         summary_df = summary_df.sort_values(by="Paper_Count", ascending=False)
 
         def generate_latex_table(summary_df):
             latex_table = r"""\begin{table*}[]
-            \centering
-            \caption{Motivations in Studies}
-            \label{tab:motivations}
-            \begin{tabular}{@{}lll@{}}
-            \toprule
-            \multicolumn{1}{c}{\textbf{Motivation}} & \multicolumn{1}{c}{\textbf{Number of studies}} & \multicolumn{1}{c}{\textbf{Studies}} \\ 
-            \midrule
-            """
-
+    \centering
+    \caption{Motivations in Studies}
+    \label{tab:motivations}
+    \begin{tabular}{@{}p{6.5cm}lp{8cm}@{}}
+    \toprule
+    \multicolumn{1}{c}{\textbf{Motivation}} & \multicolumn{1}{c}{\textbf{Number of studies}} & \multicolumn{1}{c}{\textbf{Studies}} \\ 
+    \midrule
+    """
             for _, row in summary_df.iterrows():
                 category = row["Motivation (Clustered)"]
                 paper_count = row["Paper_Count"]
@@ -211,12 +248,12 @@ class Analysis:
                 latex_table += f"{category} & \\maindatabar{{{paper_count}}} & {citations} \\\\\n"
 
             latex_table += r"""\bottomrule
-            \end{tabular}
-            \end{table*}"""
-
+    \end{tabular}
+    \end{table*}"""
             return latex_table
 
         self.saveLatex("RQ1/motivations", generate_latex_table(summary_df))
+
 
 # =======================
 # RQ 2
@@ -489,49 +526,89 @@ class Analysis:
         
     def sosDimensionsRadar(self):
         df = self.df.copy()
-    
-        sos_dimensions = [str(col) for col in df.columns if isinstance(col, str) and col.startswith("SoS:")]
+        sos_dimensions = [col for col in df.columns if isinstance(col, str) and col.startswith("SoS:")]
+        
+        likert_options = ["No", "Partial", "Yes"]
+        
+        counts = {}
+        for col in sos_dimensions:
+            counts[col] = df[col].value_counts().reindex(likert_options, fill_value=0)
+        counts_df = pd.DataFrame(counts).T  # rows: dimensions, columns: responses
+        
+        total_responses = df.shape[0]
+        percentages = counts_df.div(total_responses) * 100
 
-        mapping = {"No": 0, "Partial": 1, "Yes": 1}
-        sos_dim = df[sos_dimensions].replace(mapping).astype(int)
+        percentages.index = [col.replace("SoS: ", "") for col in percentages.index]
 
-        renamed_dimensions = {col: col.replace("SoS: ", "") for col in sos_dimensions}
-        sos_dim = sos_dim.rename(columns=renamed_dimensions)
+        no_vals = percentages["No"]
+        partial_vals = percentages["Partial"]
+        yes_vals = percentages["Yes"]
 
-        # Compute frequencies
-        freq_counts = sos_dim.sum()
-        total_papers = len(df)  # Total number of papers for reference
-        freq_percentage = (freq_counts / total_papers) * 100  # Convert to percentage
+        # Compute left starting positions:
+        left_no = -no_vals - (partial_vals / 2)
+        left_partial = -partial_vals / 2
+        left_yes = partial_vals / 2
 
-        # Labels and values
-        labels = [f"{dim} ({percent:.1f}%)" for dim, percent in zip(freq_percentage.index, freq_percentage.values)]
-        values = freq_percentage.values
-        num_vars = len(labels)
+        # Increase overall figure size further
+        fig, ax = plt.subplots(figsize=(16, len(percentages) * 1.5))
+        y_pos = np.arange(len(percentages))
+        
+        ax.barh(y_pos, no_vals, left=left_no, color="#d7191c", label="No")
+        ax.barh(y_pos, partial_vals, left=left_partial, color="#fdae61", label="Partial")
+        ax.barh(y_pos, yes_vals, left=left_yes, color="#1a9641", label="Yes")
 
-        # Compute angles for radar chart
-        angles = np.linspace(0, 2 * np.pi, num_vars, endpoint=False).tolist()
-        values = np.concatenate((values, [values[0]]))  # Close the circle
-        angles += [angles[0]]
+        ax.set_yticks(y_pos)
+        ax.set_yticklabels(percentages.index, fontsize=16)
+        ax.set_xlabel("Percentage", fontsize=16)
+        ax.set_title("SoS Dimensions",  fontsize=40)
+        
+        ax.tick_params(axis='x', labelsize=14)
 
-        fig, ax = plt.subplots(figsize=(9, 9), subplot_kw=dict(polar=True))
-        ax.fill(angles, values, color="#85d4ff", alpha=0.3)
-        ax.plot(angles, values, color="#85d4ff", linewidth=3, linestyle="solid")
+        # Add a vertical line at x=0 and legend
+        ax.axvline(0, color='black', linewidth=0.8)
+        ax.legend(loc="upper right")
 
-        ax.set_yticklabels([])
-        ax.set_xticks(angles[:-1])
+        # Increase x-axis limits to provide more space for labels
+        left_lim = left_no.min() - 2
+        right_lim = (left_yes + yes_vals).max() + 2
+        ax.set_xlim(left_lim, right_lim)
 
-        # ax.set_xticklabels(labels, fontsize=14, ha="center", va="center_baseline", wrap=True, bbox=dict(facecolor='white', alpha=0.7, edgecolor='none', boxstyle="round,pad=0.3"), zorder=3) 
-        for angle, label in zip(angles[:-1], labels):
-            ax.text(angle, max(values) * 1.1, label, ha="center", va="center",
-                    fontsize=12, color="black",
-                    bbox=dict(facecolor='white', edgecolor='none', boxstyle="round,pad=0.3"),
-                    zorder=3)  # Ensure text is on top
+        # Use a MultipleLocator for larger spacing between x ticks (every 10 units)
+        ax.xaxis.set_major_locator(MultipleLocator(10))
+        ax.xaxis.set_major_formatter(FuncFormatter(lambda x, pos: f"{abs(x):.0f}"))
+        
+        # Define a threshold below which labels will be repositioned (in percentage points)
+        min_width = 5
 
+        # Add text labels within or near each bar segment with additional offsets for tiny segments
+        for i, dim in enumerate(percentages.index):
+            # "No" category: if tiny, position to the left of the bar
+            if no_vals[i] > 0:
+                if no_vals[i] < min_width:
+                    ax.text(left_no[i] - 1, i, f"{no_vals[i]:.1f}%", va='center', ha='right',
+                            color='white', fontsize=14)
+                else:
+                    ax.text(left_no[i] + no_vals[i] / 2, i, f"{no_vals[i]:.1f}%",
+                            va='center', ha='center', color='white', fontsize=14)
+            # "Partial" category: always centered at x=0; if tiny, nudge vertically
+            if partial_vals[i] > 0:
+                if partial_vals[i] < min_width:
+                    ax.text(0, i - 0.3, f"{partial_vals[i]:.1f}%", va='bottom', ha='center',
+                            color='white', fontsize=14)
+                else:
+                    ax.text(0, i, f"{partial_vals[i]:.1f}%", va='center', ha='center',
+                            color='white', fontsize=14)
+            # "Yes" category: if tiny, position to the right of the bar
+            if yes_vals[i] > 0:
+                if yes_vals[i] < min_width:
+                    ax.text(left_yes[i] + yes_vals[i] / 2 + 1, i, f"{yes_vals[i]:.1f}%",
+                            va='center', ha='left', color='white', fontsize=14)
+                else:
+                    ax.text(left_yes[i] + yes_vals[i] / 2, i, f"{yes_vals[i]:.1f}%",
+                            va='center', ha='center', color='white', fontsize=14)
 
-        plt.title("SoS Dimensions", fontsize=20, pad=20, )
-        ax.spines["polar"].set_visible(False) 
-
-        self.savefig("sosDimensionsRadar", upper_folder="RQ4")
+        plt.tight_layout()
+        self.savefig("sosDimensionsLikert", upper_folder="RQ4")
 
         
         
@@ -739,7 +816,109 @@ class Analysis:
 
         # Save the figure
         self.savefig("trlVsContributionType", upper_folder="RQ5")
+        
+    def standardsTable(self, threshold = 2):
+        # Use a copy of the dataframe
+        df = self.df.copy()
+    
+        standards_column = "Standards Used (Cleaned Up)"
+        citation_column = "Citation Code"
+        
+        if standards_column not in df.columns:
+            print(f"Error: Column '{standards_column}' not found in dataset.")
+            return
 
+        # Create a Paper ID for each row (e.g., T01, T02, …)
+        df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
+        
+        # Helper function to format citations:
+        # Remove nulls and duplicates, then wrap each citation individually with \citepPS{...}.
+        def format_citations(citations):
+            citations = [cite for cite in citations if pd.notna(cite)]
+            seen = set()
+            unique = []
+            for c in citations:
+                if c not in seen:
+                    seen.add(c)
+                    unique.append(c)
+            return ", ".join([f"\\citepPS{{{c}}}" for c in unique]) if unique else "\\citepPS{placeholder}"
+        
+        # Extract individual standards.
+        # Assume each cell is a semicolon-separated list.
+        rows = []
+        for _, row in df.iterrows():
+            standards = row[standards_column]
+            if pd.isna(standards):
+                continue
+            # Split by semicolon and remove extra whitespace.
+            standards_list = [s.strip() for s in str(standards).split(";") if s.strip()]
+            for std in standards_list:
+                rows.append({
+                    "Standard": std,
+                    "Paper ID": row["Paper ID"],
+                    "Citation Code": row[citation_column] if citation_column in row else None
+                })
+        
+        # Create an exploded DataFrame where each row corresponds to one standard occurrence.
+        exploded_df = pd.DataFrame(rows)
+        
+        # Group by Standard to count unique papers and aggregate citations.
+        summary_df = exploded_df.groupby("Standard").agg(
+            Paper_Count=("Paper ID", "nunique"),
+            Citations=(citation_column, lambda x: ", ".join([f"\\citepPS{{{cite}}}" 
+                                                            for cite in x.dropna().unique()]) 
+                                            if not x.dropna().empty else "\\citepPS{placeholder}")
+        ).reset_index()
+        
+        # Identify low-frequency standards (those mentioned in only one paper).
+        mask = summary_df["Paper_Count"] <= threshold
+        other_row = pd.DataFrame()
+        if mask.sum() > 0:
+            # Get the list of low-frequency standards.
+            low_freq_standards = summary_df[mask]["Standard"].tolist()
+            # Instead of using the already formatted citations, extract the raw citation codes from exploded_df.
+            other_raw_citations = exploded_df.loc[
+                exploded_df["Standard"].isin(low_freq_standards), citation_column
+            ].dropna().unique()
+            other_row = pd.DataFrame([{
+                "Standard": "Other",
+                "Paper_Count": summary_df[mask]["Paper_Count"].sum(),
+                "Citations": format_citations(other_raw_citations)
+            }])
+            # Remove low-frequency standards from the summary.
+            summary_df = summary_df[~mask]
+        
+        # Sort the remaining standards by Paper_Count (highest first).
+        summary_df = summary_df.sort_values(by="Paper_Count", ascending=False)
+        
+        # Append the "Other" row at the end, if it exists.
+        if not other_row.empty:
+            summary_df = pd.concat([summary_df, other_row], ignore_index=True)
+        
+        # Generate a LaTeX table.
+        def generate_latex_table(summary_df):
+            latex_table = r"""\begin{table*}[]
+    \centering
+    \caption{Standards Used in Papers}
+    \label{tab:standards}
+    \begin{tabular}{@{}p{6.5cm}lp{8cm}@{}}
+    \toprule
+    \multicolumn{1}{c}{\textbf{Standard}} & \multicolumn{1}{c}{\textbf{Number of studies}} & \multicolumn{1}{c}{\textbf{Studies}} \\ 
+    \midrule
+    """
+            for _, row in summary_df.iterrows():
+                standard = row["Standard"]
+                paper_count = row["Paper_Count"]
+                citations = row["Citations"]
+                latex_table += f"{standard} & \\maindatabar{{{paper_count}}} & {citations} \\\\\n"
+            latex_table += r"""\bottomrule
+    \end{tabular}
+    \end{table*}"""
+            return latex_table
+
+        self.saveLatex("RQ5/standards", generate_latex_table(summary_df))
+
+                
                            
 # =======================
 # Saving and Running Script 
