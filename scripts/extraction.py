@@ -8,7 +8,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from matplotlib.ticker import MultipleLocator, FuncFormatter
-import plotly.express as px
 import plotly.graph_objects as go
 import matplotlib.gridspec as gridspec
 
@@ -33,13 +32,24 @@ class Analysis:
         5: "dtClassDistribution", # RQ3
         6: "levelOfIntegration", #RQ3
         # 7: "sosDimensionsHeatmap",# RQ4
-        7: "sosDimensionsRadar", # RQ4
+        7: "sosDimensions", # RQ4
         8: "sosTypeVsEmergence", #RQ4
         9: "trlLevels", #RQ5
         10: "trlVsContributionType", #RQ5
+        13: "trlTable", #RQ5
         11: "standardsTable", #RQ5
         12: "frameworksBarCharts", #RQ2
+        14: "frameworksBarChartsSeperate", #RQ2
+        15: "emergenceTable", #RQ4
+        16: "sosTypeTable", #RQ4
+        17: "dtClassTable", #RQ3
+        18: "levelOfIntegrationTable", #RQ3
+        19: "coordinationExtractionTable", #RQ2
+        20: "topologyExtractionTable", #RQ2
+        21: "EvaluationTable", #RQ5
     }
+    
+        
 
     def __init__(self):
         if not os.path.exists(results_path):
@@ -191,22 +201,30 @@ class Analysis:
         max_count = max(pivot_df[dt_col].max(), pivot_df[sos_col].max())
 
         fig.update_layout(
-            title="Mirror Density Histogram of Intent by Domain",
+            title="Intent by Domain",
             barmode='overlay',
             bargap=0.1,
             xaxis=dict(
                 tickvals=[-max_count, -max_count/2, 0, max_count/2, max_count],
-                ticktext=[str(max_count), str(int(max_count/2)), "0", str(int(max_count/2)), str(max_count)],
-                title="Count",
+                ticktext=[str(int(max_count)), str(int(max_count/2)), "0", str(int(max_count/2)), str(int(max_count))],
+                title="# of Studies",
+                showgrid=True,
             ),
             yaxis=dict(
                 title="Domain",
                 automargin=True,
+                showgrid=True,
             ),
-            width=1200,
-            height=800,
-            font=dict(size=16),
-            legend=dict(title="Intent")
+            width=1400,
+            height=900,
+            font=dict(size=18),
+            plot_bgcolor="white",
+            legend=dict(
+                x=0.65, 
+                y=1,
+                font=dict(size=18), 
+                bgcolor="white", 
+            )
         )
 
         file_path = os.path.join(results_path, "RQ1/intentOfSoSDT.png")
@@ -235,14 +253,15 @@ class Analysis:
 
         def generate_latex_table(summary_df):
             latex_table = r"""\begin{table*}[]
-    \centering
-    \caption{Motivations in Studies}
-    \label{tab:motivations}
-    \begin{tabular}{@{}p{6.5cm}lp{8cm}@{}}
-    \toprule
-    \multicolumn{1}{c}{\textbf{Motivation}} & \multicolumn{1}{c}{\textbf{Number of studies}} & \multicolumn{1}{c}{\textbf{Studies}} \\ 
-    \midrule
-    """
+            \centering
+            \caption{Motivations in Studies}
+            \label{tab:motivations}
+            \resizebox{\textwidth}{!}{ 
+            \begin{tabular}{@{} p{5cm} l p{12.5cm} @{}}
+            \toprule
+            \multicolumn{1}{c}{\textbf{TRL}} & \multicolumn{1}{c}{\textbf{\# of studies}} & \multicolumn{1}{c}{\textbf{Studies}} \\ 
+            \midrule
+            """
             for _, row in summary_df.iterrows():
                 category = row["Motivation (Clustered)"]
                 paper_count = row["Paper_Count"]
@@ -250,8 +269,9 @@ class Analysis:
                 latex_table += f"{category} & \\maindatabar{{{paper_count}}} & {citations} \\\\\n"
 
             latex_table += r"""\bottomrule
-    \end{tabular}
-    \end{table*}"""
+            \end{tabular}
+            }
+            \end{table*}"""
             return latex_table
 
         self.saveLatex("RQ1/motivations", generate_latex_table(summary_df))
@@ -264,6 +284,7 @@ class Analysis:
     def topologyExtraction(self):
         warnings.simplefilter(action='ignore', category=FutureWarning)
         df = self.df.copy()
+        df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
 
         topology_column = "Topology of DT/PT"
         topology_categories = ["Hierarchical", "Centralized", "Decentralized", "Distributed", "Federated"]
@@ -284,12 +305,13 @@ class Analysis:
             "Count": [df[topology].sum() for topology in topology_categories] 
         })
 
-        total_papers = topology_counts["Count"].sum()
+        total_papers = df["Paper ID"].nunique()  # Get total unique papers
         topology_counts["Percentage"] = (topology_counts["Count"] / total_papers) * 100
 
         topology_counts = topology_counts.sort_values(by="Percentage", ascending=True)
 
         fig, ax = plt.subplots(figsize=(8, 5))
+        ax.set_xlim(0, 100)
         indexes = np.arange(len(topology_counts))
 
         bars = ax.barh(indexes, topology_counts["Percentage"], color="#85d4ff")
@@ -328,10 +350,70 @@ class Analysis:
 
         self.savefig("topologyExtraction", upper_folder="RQ2")
         
+
+    def topologyExtractionTable(self):
+        df = self.df.copy()
+        
+        topology_column = "Topology of DT/PT"
+        citation_column = "Citation Code"
+        topology_categories = ["Hierarchical", "Centralized", "Decentralized", "Distributed", "Federated"]
+        
+        df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
+        
+        def extract_topology(text):
+            if pd.isna(text):
+                return []
+            found_categories = {word.capitalize() for word in re.findall(r"\b\w+\b", str(text))}
+            return list(set(topology_categories).intersection(found_categories))
+
+        df["Extracted Topologies"] = df[topology_column].apply(extract_topology)
+        
+        exploded_df = df.explode("Extracted Topologies")
+        
+        summary_df = exploded_df.groupby("Extracted Topologies").agg(
+            Paper_Count=("Paper ID", "count"),
+            Citations=(citation_column, lambda x: ", ".join([f"\\citepPS{{{cite}}}" for cite in x.dropna().unique()]) 
+                                        if not x.dropna().empty else "\\citepPS{placeholder}")
+        ).reset_index()
+        
+        summary_df = summary_df.sort_values(by="Paper_Count", ascending=False)
+        
+        def generate_latex_table(summary_df):
+            latex_table = r"""\begin{table*}[]
+            \centering
+            \caption{Topologies in Studies}
+            \label{tab:rq2-topology}
+            \resizebox{\textwidth}{!}{ 
+            \begin{tabular}{@{} p{1.5cm} l p{17cm} @{} }
+            \toprule
+            \multicolumn{1}{c}{\textbf{Topology}} & \multicolumn{1}{c}{\textbf{\# of studies}} & \multicolumn{1}{c}{\textbf{Studies}} \\ 
+            \midrule
+            """
+            for _, row in summary_df.iterrows():
+                topology = row["Extracted Topologies"]
+                paper_count = row["Paper_Count"]
+                citations = row["Citations"]
+                
+                # Wrap citations in \texttt{} to avoid formatting issues
+                wrapped_citations = " ".join(citations.split(", "))
+                
+                latex_table += f"{topology} & \\maindatabar{{{paper_count}}} & \\texttt{{{wrapped_citations}}} \\\\ \n"
+
+            latex_table += r"""\bottomrule
+            \end{tabular}
+            }
+            \end{table*}"""
+            return latex_table
+        
+        self.saveLatex("RQ2/topologyExtractionTable", generate_latex_table(summary_df))
+
+
+        
         
     def coordinationExtraction(self):
         warnings.simplefilter(action='ignore', category=FutureWarning)
         df = self.df.copy()
+        df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
 
         categories = ["Peer-to-Peer (P2P)", "DT Orchestrated", "No Control", "System Orchestrated", "Hybrid"]
 
@@ -343,12 +425,13 @@ class Analysis:
             "Count": [df[cat].sum() for cat in categories] 
         })
 
-        total_papers = counts["Count"].sum()
+        total_papers = df["Paper ID"].nunique()  # Get total unique papers
         counts["Percentage"] = (counts["Count"] / total_papers) * 100
 
         counts = counts.sort_values(by="Percentage", ascending=True)
 
         fig, ax = plt.subplots(figsize=(8, 5))
+        ax.set_xlim(0, 100)
         indexes = np.arange(len(counts))
 
         bars = ax.barh(indexes, counts["Percentage"], color="#85d4ff")
@@ -387,6 +470,47 @@ class Analysis:
 
         self.savefig("coordinationExtraction", upper_folder="RQ2")
         
+    def coordinationExtractionTable(self):
+        df = self.df.copy()
+        
+        column = "Coordination (Cleaned)"
+        citation_column = "Citation Code"
+
+        df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
+
+        summary_df = df.groupby(column).agg(
+            Paper_Count=("Paper ID", "count"),
+            Citations=(citation_column, lambda x: ", ".join([f"\\citepPS{{{cite}}}" for cite in x.dropna().unique()]) 
+                                            if not x.dropna().empty else "\\citepPS{placeholder}")
+        ).reset_index()
+
+        summary_df = summary_df.sort_values(by="Paper_Count", ascending=False)
+
+        def generate_latex_table(summary_df):
+            latex_table = r"""\begin{table*}[]
+            \centering
+            \caption{Coordination in Studies}
+            \label{tab:rq2-coordination}
+            \resizebox{\textwidth}{!}{ 
+            \begin{tabular}{@{} p{3.5cm} l p{15cm} @{}}
+            \toprule
+            \multicolumn{1}{c}{\textbf{Coordination}} & \multicolumn{1}{c}{\textbf{\# of studies}} & \multicolumn{1}{c}{\textbf{Studies}} \\ 
+            \midrule
+            """
+            for _, row in summary_df.iterrows():
+                category = row[column]
+                paper_count = row["Paper_Count"]
+                citations = row["Citations"]
+                latex_table += f"{category} & \\maindatabar{{{paper_count}}} & {citations} \\\\\n"
+
+            latex_table += r"""\bottomrule
+            \end{tabular}
+            }
+            \end{table*}"""
+            return latex_table
+
+        self.saveLatex("RQ2/coordinationExtractionTable", generate_latex_table(summary_df))
+        
         
         
     def frameworksBarCharts(self, threshold=1):
@@ -397,8 +521,8 @@ class Analysis:
             "Digital Twin & IoT": "DT/IoT", 
             "Modeling & Simulation": "Modeling/Sim", 
             "AI, Data Analytics & Machine Learning": "Analytics", 
-            "Cloud, Edge, and DevOps": "", 
-            "Systems Engineering & Architecture": "Arch", 
+            "Cloud, Edge, and DevOps": "CloudOps", 
+            "Systems Engineering & Architecture": "Sys Eng & Arch", 
             "Data Management": "Data Mgmt", 
             "Geospatial & Visualization Technologies": "Geo/Viz", 
             "Application Development & Web Technologies": "App/Web Dev"
@@ -408,7 +532,6 @@ class Analysis:
         
         for full_col, short_label in framework_columns.items():
             # Extract individual frameworks.
-            # Assumes each cell is a comma-separated list.
             rows = []
             for _, row in df.iterrows():
                 cell = row[full_col]
@@ -421,7 +544,6 @@ class Analysis:
                         "Paper ID": row["Paper ID"]
                     })
             
-            # If no data found for this column, skip.
             if not rows:
                 continue
             
@@ -432,22 +554,34 @@ class Analysis:
                 Paper_Count=("Paper ID", "nunique")
             ).reset_index()
             
-            # Group frameworks that appear in <= threshold papers into "Other".
+            # Group frameworks that appear in <= threshold papers into "Other"
             mask = summary_df["Paper_Count"] <= threshold
             other_count = summary_df.loc[mask, "Paper_Count"].sum()
             other_row = None
-            if mask.sum() > 0:
-                other_row = pd.DataFrame([{"Framework": "Other", "Paper_Count": other_count}])
-                summary_df = summary_df[~mask]
-            
-            # Sort the remaining frameworks by Paper_Count (ascending, so the smallest is at top).
+
+            # If all categories would be grouped as "Other", don't group
+            if mask.sum() == len(summary_df):  # Everything falls into "Other"
+                pass  # Leave summary_df as is
+            else:
+                if mask.sum() > 0:
+                    other_row = pd.DataFrame([{"Framework": "Other", "Paper_Count": other_count}])
+                    summary_df = summary_df[~mask]
+
+            # Sort the remaining frameworks by Paper_Count (ascending)
             summary_df = summary_df.sort_values(by="Paper_Count", ascending=True)
+
+            # If "Other" exists, add it at the bottom
             if other_row is not None:
                 summary_df = pd.concat([summary_df, other_row], ignore_index=True)
+
+            # Ensure "Other" always appears at the bottom
+            if "Other" in summary_df["Framework"].values:
+                summary_df = summary_df.sort_values(by=["Framework"], key=lambda x: x != "Other")
+
             
             # Calculate percentages.
-            total = summary_df["Paper_Count"].sum()
-            summary_df["Percentage"] = (summary_df["Paper_Count"] / total) * 100
+            total_papers = df["Paper ID"].nunique()  # Get total unique papers
+            summary_df["Percentage"] = (summary_df["Paper_Count"] / total_papers) * 100
             
             # Save the processed data.
             data_list.append((full_col, short_label, summary_df, len(summary_df)))
@@ -459,13 +593,13 @@ class Analysis:
         
         # Compute total height for the figure.
         total_relative_height = sum([n for (_, _, _, n) in data_list])
-        total_height = 0.33 * total_relative_height + 2  # add extra margin
+        total_height = 0.33 * total_relative_height + 2  # Add extra margin
         
         # Create a figure with subplots arranged vertically.
         n_subplots = len(data_list)
         height_ratios = [n for (_, _, _, n) in data_list]
         
-        fig = plt.figure(figsize=(8, total_height))
+        fig = plt.figure(figsize=(8,  max(total_height, 4)))
         gs = gridspec.GridSpec(n_subplots, 1, height_ratios=height_ratios, hspace=0.6)
         
         # Loop through each category and plot in its respective subplot.
@@ -473,6 +607,7 @@ class Analysis:
             ax = fig.add_subplot(gs[i])
             indexes = np.arange(len(summary_df))
             ax.barh(indexes, summary_df["Percentage"], color="#85d4ff")
+            ax.set_xlim(0, 100)
             
             # Create labels like: "Framework (Count) — Percentage%"
             labels = [
@@ -499,11 +634,97 @@ class Analysis:
         
         plt.tight_layout()
         self.savefig("frameworksBarCharts", upper_folder="RQ2")
+        
+        
+    def frameworksBarChartsSeperate(self, threshold=1):
+        df = self.df.copy()
+        df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
+
+        framework_columns = {
+            "Digital Twin & IoT": "DT/IoT", 
+            "Modeling & Simulation": "Modeling/Sim", 
+            "AI, Data Analytics & Machine Learning": "Analytics", 
+            "Cloud, Edge, and DevOps": "CloudOps", 
+            "Systems Engineering & Architecture": "Sys Eng & Arch", 
+            "Data Management": "Data Mgmt", 
+            "Geospatial & Visualization Technologies": "Geo/Viz", 
+            "Application Development & Web Technologies": "App/Web Dev"
+        }
+
+        for full_col, short_label in framework_columns.items():
+            rows = []
+            for _, row in df.iterrows():
+                cell = row[full_col]
+                if pd.isna(cell):
+                    continue
+                frameworks_list = [fw.strip() for fw in str(cell).split(",") if fw.strip()]
+                for fw in frameworks_list:
+                    rows.append({
+                        "Framework": fw,
+                        "Paper ID": row["Paper ID"]
+                    })
+
+            if not rows:
+                continue  # Skip empty categories
+
+            exploded_df = pd.DataFrame(rows)
+
+            # Count occurrences per framework
+            summary_df = exploded_df.groupby("Framework").agg(
+                Paper_Count=("Paper ID", "nunique")
+            ).reset_index()
+
+            # Group low-frequency frameworks into "Other"
+            mask = summary_df["Paper_Count"] <= threshold
+            other_count = summary_df.loc[mask, "Paper_Count"].sum()
+
+            if mask.sum() == len(summary_df):  # If everything falls into "Other", keep all instead
+                pass
+            else:
+                if mask.sum() > 0:
+                    other_row = pd.DataFrame([{"Framework": "Other", "Paper_Count": other_count}])
+                    summary_df = summary_df[~mask]
+                    summary_df = pd.concat([summary_df, other_row], ignore_index=True)
+
+            # Sort frameworks (ascending), ensuring "Other" is always last
+            summary_df = summary_df.sort_values(by="Paper_Count", ascending=True)
+            if "Other" in summary_df["Framework"].values:
+                summary_df = summary_df.sort_values(by=["Framework"], key=lambda x: x != "Other")
+
+            # Calculate percentages based on total unique papers
+            total_papers = df["Paper ID"].nunique()
+            summary_df["Percentage"] = (summary_df["Paper_Count"] / total_papers) * 100
 
 
+            indexes = np.arange(len(summary_df))
+            # Create a horizontal bar chart
+            fig, ax = plt.subplots(figsize=(8, 0.33 * max(len(summary_df), 4))) # no cut off for y axis title
+            ax.barh(indexes, summary_df["Percentage"], color="#85d4ff")
+            ax.set_xlim(0, 100)  # Ensure consistent scaling
 
-            
+            # Labels like: "Framework (Count) — Percentage%"
+            labels = [
+                f"{row['Framework']} ({row['Paper_Count']}) — {row['Percentage']:.1f}%"
+                for _, row in summary_df.iterrows()
+            ]
+            ax.set_yticks(indexes)
+            ax.set_yticklabels(labels, ha="left")
 
+            # Formatting
+            ax.spines["right"].set_visible(False)
+            ax.spines["top"].set_visible(False)
+            ax.spines["bottom"].set_visible(False)
+            ax.tick_params(axis="x", which="both", bottom=False, top=False, labelbottom=False)
+            ax.tick_params(axis="y", direction="out", pad=-10)
+            ax.yaxis.set_ticks_position("none")
+            ax.set_ylabel(short_label, rotation=90, fontsize=12, labelpad=7)
+
+            # Adjust font sizes
+            for label in ax.get_yticklabels() + ax.get_xticklabels():
+                label.set_fontsize(13)
+
+            self.savefig(f"frameworksBarCharts_{short_label}", upper_folder="RQ2")
+            plt.close(fig)
 
 
 # =======================
@@ -513,13 +734,14 @@ class Analysis:
         warnings.simplefilter(action='ignore', category=FutureWarning)
         
         df = self.df.copy()
+        df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
         
         # Define the DT related classes
         dt_related = ["Human-actuated digital twin", "Human-supervised digital twin", "Digital twin"]
         
         # Group by DT Class only
         dt_class_counts = df.groupby("DT Class").size().reset_index(name="Count")
-        total_count = dt_class_counts["Count"].sum()
+        total_count = df["Paper ID"].nunique()  # Get total unique papers
         dt_class_counts["Percentage"] = dt_class_counts["Count"] / total_count * 100
         
         # Mark DT related classes for ordering
@@ -535,6 +757,7 @@ class Analysis:
         
         # Create a horizontal bar chart
         fig, ax = plt.subplots(figsize=(8, 0.33 * len(dt_class_counts)))
+        ax.set_xlim(0, 100)
         indexes = np.arange(len(dt_class_counts))
         bars = ax.barh(indexes, dt_class_counts["Percentage"], color="#85d4ff")
         
@@ -566,12 +789,56 @@ class Analysis:
         
         # Save the figure using the class's savefig method
         self.savefig("dtClassDistribution", upper_folder="RQ3")
+        
+    def dtClassTable(self):
+        df = self.df.copy()
+        
+        column = "DT Class"
+        citation_column = "Citation Code"
+
+        df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
+
+        summary_df = df.groupby(column).agg(
+            Paper_Count=("Paper ID", "count"),
+            Citations=(citation_column, lambda x: ", ".join([f"\\citepPS{{{cite}}}" for cite in x.dropna().unique()]) 
+                                            if not x.dropna().empty else "\\citepPS{placeholder}")
+        ).reset_index()
+
+        summary_df = summary_df.sort_values(by="Paper_Count", ascending=False)
+
+        def generate_latex_table(summary_df):
+            latex_table = r"""\begin{table*}[]
+            \centering
+            \caption{DT Levels of Autonomy in Studies}
+            \label{tab:rq3-dt-class}
+            \resizebox{\textwidth}{!}{ 
+            \begin{tabular}{@{} p{3.5cm} l p{15cm} @{}}
+            \toprule
+            \multicolumn{1}{c}{\textbf{Autonomy}} & \multicolumn{1}{c}{\textbf{\# of studies}} & \multicolumn{1}{c}{\textbf{Studies}} \\ 
+            \midrule
+            """
+            for _, row in summary_df.iterrows():
+                category = row[column]
+                paper_count = row["Paper_Count"]
+                citations = row["Citations"]
+                latex_table += f"{category} & \\maindatabar{{{paper_count}}} & {citations} \\\\\n"
+
+            latex_table += r"""\bottomrule
+            \end{tabular}
+            }
+            \end{table*}"""
+            return latex_table
+
+        self.saveLatex("RQ3/dtClassTable", generate_latex_table(summary_df))
+        
 
             
         
     def levelOfIntegration(self):
         warnings.simplefilter(action='ignore', category=FutureWarning)
         df = self.df.copy()
+        df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
+
 
         categories = ["Data Exchange", "Model Exchange", "Co-Simulation"]
 
@@ -583,12 +850,14 @@ class Analysis:
             "Count": [df[cat].sum() for cat in categories] 
         })
 
-        total_papers = counts["Count"].sum()
+        
+        total_papers = df["Paper ID"].nunique()  # Get total unique papers
         counts["Percentage"] = (counts["Count"] / total_papers) * 100
 
         counts = counts.sort_values(by="Percentage", ascending=True)
 
         fig, ax = plt.subplots(figsize=(8, 5))
+        ax.set_xlim(0, 100)
         indexes = np.arange(len(counts))
 
         bars = ax.barh(indexes, counts["Percentage"], color="#85d4ff")
@@ -626,6 +895,48 @@ class Analysis:
         plt.tight_layout()
 
         self.savefig("levelOfIntegration", upper_folder="RQ3")
+        
+        
+    def levelOfIntegrationTable(self):
+        df = self.df.copy()
+        
+        column = "Level of Integration (Cleaned)"
+        citation_column = "Citation Code"
+
+        df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
+
+        summary_df = df.groupby(column).agg(
+            Paper_Count=("Paper ID", "count"),
+            Citations=(citation_column, lambda x: ", ".join([f"\\citepPS{{{cite}}}" for cite in x.dropna().unique()]) 
+                                            if not x.dropna().empty else "\\citepPS{placeholder}")
+        ).reset_index()
+
+        summary_df = summary_df.sort_values(by="Paper_Count", ascending=False)
+
+        def generate_latex_table(summary_df):
+            latex_table = r"""\begin{table*}[]
+            \centering
+            \caption{DT Level of Integration of Constituents in Studies}
+            \label{tab:rq3-lvl-integration}
+            \resizebox{\textwidth}{!}{ 
+            \begin{tabular}{@{} p{3.5cm} l p{15cm} @{}}
+            \toprule
+            \multicolumn{1}{c}{\textbf{Integration}} & \multicolumn{1}{c}{\textbf{\# of studies}} & \multicolumn{1}{c}{\textbf{Studies}} \\ 
+            \midrule
+            """
+            for _, row in summary_df.iterrows():
+                category = row[column]
+                paper_count = row["Paper_Count"]
+                citations = row["Citations"]
+                latex_table += f"{category} & \\maindatabar{{{paper_count}}} & {citations} \\\\\n"
+
+            latex_table += r"""\bottomrule
+            \end{tabular}
+            }
+            \end{table*}"""
+            return latex_table
+
+        self.saveLatex("RQ3/levelOfIntegrationTable", generate_latex_table(summary_df))
 
      
      
@@ -648,7 +959,7 @@ class Analysis:
         self.savefig("sosDimensionsHeatmap", upper_folder="RQ4")
         
         
-    def sosDimensionsRadar(self):
+    def sosDimensions(self):
         df = self.df.copy()
         sos_dimensions = [col for col in df.columns if isinstance(col, str) and col.startswith("SoS:")]
         
@@ -661,7 +972,6 @@ class Analysis:
         
         total_responses = df.shape[0]
         percentages = counts_df.div(total_responses) * 100
-
         percentages.index = [col.replace("SoS: ", "") for col in percentages.index]
 
         no_vals = percentages["No"]
@@ -674,23 +984,23 @@ class Analysis:
         left_yes = partial_vals / 2
 
         # Increase overall figure size further
-        fig, ax = plt.subplots(figsize=(16, len(percentages) * 1.5))
+        fig, ax = plt.subplots(figsize=(30, len(percentages) * 1.5))
         y_pos = np.arange(len(percentages))
         
-        ax.barh(y_pos, no_vals, left=left_no, color="#d7191c", label="No")
-        ax.barh(y_pos, partial_vals, left=left_partial, color="#fdae61", label="Partial")
-        ax.barh(y_pos, yes_vals, left=left_yes, color="#1a9641", label="Yes")
+        ax.barh(y_pos, no_vals, left=left_no, color="#3182bd", label="No")
+        ax.barh(y_pos, partial_vals, left=left_partial, color="#b5bbc3", label="Partial")
+        ax.barh(y_pos, yes_vals, left=left_yes, color="#de2d26", label="Yes")
 
         ax.set_yticks(y_pos)
         ax.set_yticklabels(percentages.index, fontsize=16)
-        ax.set_xlabel("Percentage", fontsize=16)
-        ax.set_title("SoS Dimensions",  fontsize=40)
+        ax.set_xlabel("Percentage", fontsize=18)
+        ax.set_title("SoS Dimensions",  fontsize=25)
         
-        ax.tick_params(axis='x', labelsize=14)
+        ax.tick_params(axis='x', labelsize=18)
+        ax.tick_params(axis='y', labelsize=25)
 
         # Add a vertical line at x=0 and legend
-        ax.axvline(0, color='black', linewidth=0.8)
-        ax.legend(loc="upper right")
+        ax.axvline(0, color='black', linewidth=0.2)
 
         # Increase x-axis limits to provide more space for labels
         left_lim = left_no.min() - 2
@@ -698,7 +1008,7 @@ class Analysis:
         ax.set_xlim(left_lim, right_lim)
 
         # Use a MultipleLocator for larger spacing between x ticks (every 10 units)
-        ax.xaxis.set_major_locator(MultipleLocator(10))
+        ax.xaxis.set_major_locator(MultipleLocator(5))
         ax.xaxis.set_major_formatter(FuncFormatter(lambda x, pos: f"{abs(x):.0f}"))
         
         # Define a threshold below which labels will be repositioned (in percentage points)
@@ -709,38 +1019,122 @@ class Analysis:
             # "No" category: if tiny, position to the left of the bar
             if no_vals[i] > 0:
                 if no_vals[i] < min_width:
-                    ax.text(left_no[i] - 1, i, f"{no_vals[i]:.1f}%", va='center', ha='right',
-                            color='white', fontsize=14)
+                    ax.text(left_no[i] - 1, i, f"{no_vals[i]:.2f}%", va='center', ha='right',
+                            color='white', fontsize=18, fontweight="bold")
                 else:
-                    ax.text(left_no[i] + no_vals[i] / 2, i, f"{no_vals[i]:.1f}%",
-                            va='center', ha='center', color='white', fontsize=14)
+                    ax.text(left_no[i] + no_vals[i] / 2, i, f"{no_vals[i]:.2f}%",
+                            va='center', ha='center', color='white', fontsize=18, fontweight="bold")
             # "Partial" category: always centered at x=0; if tiny, nudge vertically
             if partial_vals[i] > 0:
                 if partial_vals[i] < min_width:
-                    ax.text(0, i - 0.3, f"{partial_vals[i]:.1f}%", va='bottom', ha='center',
-                            color='white', fontsize=14)
+                    ax.text(0, i - 0.3, f"{partial_vals[i]:.2f}%", va='bottom', ha='center',
+                            color='white', fontsize=18, fontweight="bold")
                 else:
-                    ax.text(0, i, f"{partial_vals[i]:.1f}%", va='center', ha='center',
-                            color='white', fontsize=14)
+                    ax.text(0, i, f"{partial_vals[i]:.2f}%", va='center', ha='center',
+                            color='white', fontsize=18, fontweight="bold")
             # "Yes" category: if tiny, position to the right of the bar
             if yes_vals[i] > 0:
                 if yes_vals[i] < min_width:
-                    ax.text(left_yes[i] + yes_vals[i] / 2 + 1, i, f"{yes_vals[i]:.1f}%",
-                            va='center', ha='left', color='white', fontsize=14)
+                    ax.text(left_yes[i] + yes_vals[i] / 2 + 1, i, f"{yes_vals[i]:.2f}%",
+                            va='center', ha='left', color='white', fontsize=18, fontweight="bold")
                 else:
-                    ax.text(left_yes[i] + yes_vals[i] / 2, i, f"{yes_vals[i]:.1f}%",
-                            va='center', ha='center', color='white', fontsize=14)
+                    ax.text(left_yes[i] + yes_vals[i] / 2, i, f"{yes_vals[i]:.2f}%",
+                            va='center', ha='center', color='white', fontsize=18, fontweight="bold")
 
-        plt.tight_layout()
-        self.savefig("sosDimensionsLikert", upper_folder="RQ4")
+        self.savefig("sosDimensions", upper_folder="RQ4")
 
+        
+        
+    def sosTypeTable(self):
+        df = self.df.copy()
+        
+        column = "Type of SoS"
+        citation_column = "Citation Code"
+
+        df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
+
+        summary_df = df.groupby(column).agg(
+            Paper_Count=("Paper ID", "count"),
+            Citations=(citation_column, lambda x: ", ".join([f"\\citepPS{{{cite}}}" for cite in x.dropna().unique()]) 
+                                            if not x.dropna().empty else "\\citepPS{placeholder}")
+        ).reset_index()
+
+        summary_df = summary_df.sort_values(by="Paper_Count", ascending=False)
+
+        def generate_latex_table(summary_df):
+            latex_table = r"""\begin{table*}[]
+            \centering
+            \caption{SoS Type in Studies}
+            \label{tab:sos-type}
+            \resizebox{\textwidth}{!}{ 
+            \begin{tabular}{@{} p{2.5cm} l p{14cm} @{}}
+            \toprule
+            \multicolumn{1}{c}{\textbf{TRL}} & \multicolumn{1}{c}{\textbf{\# of studies}} & \multicolumn{1}{c}{\textbf{Studies}} \\ 
+            \midrule
+            """
+            for _, row in summary_df.iterrows():
+                category = row[column]
+                paper_count = row["Paper_Count"]
+                citations = row["Citations"]
+                latex_table += f"{category} & \\maindatabar{{{paper_count}}} & {citations} \\\\\n"
+
+            latex_table += r"""\bottomrule
+            \end{tabular}
+            }
+            \end{table*}"""
+            return latex_table
+
+        self.saveLatex("RQ4/sosTypeTable", generate_latex_table(summary_df))
+        
+        
+    def emergenceTable(self):
+        df = self.df.copy()
+        
+        column = "Emergence"
+        citation_column = "Citation Code"
+
+        df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
+
+        summary_df = df.groupby(column).agg(
+            Paper_Count=("Paper ID", "count"),
+            Citations=(citation_column, lambda x: ", ".join([f"\\citepPS{{{cite}}}" for cite in x.dropna().unique()]) 
+                                            if not x.dropna().empty else "\\citepPS{placeholder}")
+        ).reset_index()
+
+        summary_df = summary_df.sort_values(by="Paper_Count", ascending=False)
+
+        def generate_latex_table(summary_df):
+            latex_table = r"""\begin{table*}[]
+            \centering
+            \caption{Emergence Type in Studies}
+            \label{tab:emergence-type}
+            \resizebox{\textwidth}{!}{ 
+            \begin{tabular}{@{} p{2.5cm} l p{14cm} @{}}
+            \toprule
+            \multicolumn{1}{c}{\textbf{TRL}} & \multicolumn{1}{c}{\textbf{\# of studies}} & \multicolumn{1}{c}{\textbf{Studies}} \\ 
+            \midrule
+            """
+            for _, row in summary_df.iterrows():
+                category = row[column]
+                paper_count = row["Paper_Count"]
+                citations = row["Citations"]
+                latex_table += f"{category} & \\maindatabar{{{paper_count}}} & {citations} \\\\\n"
+
+            latex_table += r"""\bottomrule
+            \end{tabular}
+            }
+            \end{table*}"""
+            return latex_table
+
+        self.saveLatex("RQ4/emergenceTable", generate_latex_table(summary_df))
         
         
     def sosTypeVsEmergence(self):
         df = self.df.copy()
         df = df.rename(columns={"Type of SoS": "SoS Type", "Emergence": "Emergence"})
+        df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
 
-        df["Emergence"] = df["Emergence"].fillna("Not Considered")
+
         sos_vs_emergent = df.groupby(["SoS Type", "Emergence"]).size().unstack().fillna(0)
 
         # Sort SoS Types by total count
@@ -751,7 +1145,7 @@ class Analysis:
         sos_types = sos_vs_emergent.index.tolist()
         emergence_types = sos_vs_emergent.columns.tolist()
 
-        colors = ["#ADEEE3", "#86DEB7", "#63B995", "#50723C"]
+        colors = ["#FFD166", "#83bd63", "#ff9a26", "#ff4646"]
 
         # Bar width and spacing
         num_emergence = len(emergence_types)
@@ -773,7 +1167,7 @@ class Analysis:
                     ax.text(bar.get_x() + 0.1,  # Small offset to the right
                             bar.get_y() + bar.get_height() / 2,  
                             f"{emergence} ({int(count)})", 
-                            ha="left", va="center", fontsize=11, color="black")
+                            ha="left", va="center", fontsize=18, color="black")
 
         # Format labels
         sos_labels = [
@@ -781,16 +1175,17 @@ class Analysis:
             for sos in sos_types
         ]
         ax.set_yticks(y_positions)
-        ax.set_yticklabels(sos_labels, fontsize=13, ha="right")
+        ax.set_yticklabels(sos_labels, fontsize=18, ha="right")
 
         # Remove unnecessary plot borders
         ax.spines["right"].set_visible(False)
         ax.spines["top"].set_visible(False)
         ax.spines["bottom"].set_visible(False)
 
-        ax.set_xlabel("Count", fontsize=13)
-        ax.set_ylabel("SoS Type", fontsize=14, labelpad=10)
+        ax.set_xlabel("Count", fontsize=18)
+        ax.set_ylabel("SoS Type", fontsize=18, labelpad=10)
         ax.set_title("SoS Type vs. Emergent Behavior", fontsize=16, pad=15)
+        ax.legend(fontsize=16)
 
         # Remove x axis 
         ax.set_xticks([])
@@ -890,8 +1285,7 @@ class Analysis:
         trl_types = pivot_df.index.tolist()
         contribution_types = pivot_df.columns.tolist()
 
-        # Define colors (adjust as needed)
-        colors = ["#ADEEE3", "#86DEB7", "#63B995", "#50723C"]
+        colors = ["#3182bd", "#b5bbc3", "#de2d26"]
 
         # Bar settings
         num_contributions = len(contribution_types)
@@ -914,7 +1308,7 @@ class Analysis:
                     ax.text(bar.get_x() + 0.1,  # Small offset to the right
                             bar.get_y() + bar.get_height() / 2,  
                             f"{contribution} ({int(count)})", 
-                            ha="left", va="center", fontsize=11, color="black")
+                            ha="left", va="center", fontsize=18, color="black")
 
         # Format labels (Ensure Initial is at the top)
         trl_labels = [
@@ -922,7 +1316,7 @@ class Analysis:
             for trl in trl_types
         ]
         ax.set_yticks(y_positions)
-        ax.set_yticklabels(trl_labels, fontsize=13, ha="right")
+        ax.set_yticklabels(trl_labels, fontsize=18, ha="right")
 
         # Remove unnecessary plot borders
         ax.spines["right"].set_visible(False)
@@ -935,8 +1329,9 @@ class Analysis:
         ax.set_xlabel("")  
 
         # Set title and labels
-        ax.set_ylabel("TRL Level", fontsize=14, labelpad=10)
-        ax.set_title("TRL Levels vs. Contribution Types", fontsize=16, pad=15)
+        ax.set_ylabel("TRL Level", fontsize=18, labelpad=10)
+        ax.set_title("TRL Levels vs. Contribution Types", fontsize=20, pad=15)
+        ax.legend(fontsize=16)
 
         # Save the figure
         self.savefig("trlVsContributionType", upper_folder="RQ5")
@@ -947,12 +1342,7 @@ class Analysis:
     
         standards_column = "Standards Used (Cleaned Up)"
         citation_column = "Citation Code"
-        
-        if standards_column not in df.columns:
-            print(f"Error: Column '{standards_column}' not found in dataset.")
-            return
 
-        # Create a Paper ID for each row (e.g., T01, T02, …)
         df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
         
         # Helper function to format citations:
@@ -1000,47 +1390,132 @@ class Analysis:
         if mask.sum() > 0:
             # Get the list of low-frequency standards.
             low_freq_standards = summary_df[mask]["Standard"].tolist()
-            # Instead of using the already formatted citations, extract the raw citation codes from exploded_df.
             other_raw_citations = exploded_df.loc[
                 exploded_df["Standard"].isin(low_freq_standards), citation_column
             ].dropna().unique()
             other_row = pd.DataFrame([{
                 "Standard": "Other",
-                "Paper_Count": summary_df[mask]["Paper_Count"].sum(),
+                "Paper_Count": len(other_raw_citations), # count based on the number of papers, rather than number of standards (one paper might use multiple standards)
                 "Citations": format_citations(other_raw_citations)
             }])
             # Remove low-frequency standards from the summary.
             summary_df = summary_df[~mask]
         
-        # Sort the remaining standards by Paper_Count (highest first).
+        # Sort the remaining standards by count
         summary_df = summary_df.sort_values(by="Paper_Count", ascending=False)
         
-        # Append the "Other" row at the end, if it exists.
+        # Append the "Other" category row at the end
         if not other_row.empty:
             summary_df = pd.concat([summary_df, other_row], ignore_index=True)
         
         # Generate a LaTeX table.
         def generate_latex_table(summary_df):
             latex_table = r"""\begin{table*}[]
-    \centering
-    \caption{Standards Used in Papers}
-    \label{tab:standards}
-    \begin{tabular}{@{}p{6.5cm}lp{8cm}@{}}
-    \toprule
-    \multicolumn{1}{c}{\textbf{Standard}} & \multicolumn{1}{c}{\textbf{Number of studies}} & \multicolumn{1}{c}{\textbf{Studies}} \\ 
-    \midrule
-    """
+            \centering
+            \caption{Standards Used in Papers}
+            \label{tab:standards}
+            \resizebox{\textwidth}{!}{ 
+            \begin{tabular}{@{} p{5cm} l p{11.5cm} @{}}
+            \toprule
+            \multicolumn{1}{c}{\textbf{Standards}} & \multicolumn{1}{c}{\textbf{\# of studies}} & \multicolumn{1}{c}{\textbf{Studies}} \\ 
+            \midrule
+            """
             for _, row in summary_df.iterrows():
                 standard = row["Standard"]
                 paper_count = row["Paper_Count"]
                 citations = row["Citations"]
                 latex_table += f"{standard} & \\maindatabar{{{paper_count}}} & {citations} \\\\\n"
             latex_table += r"""\bottomrule
-    \end{tabular}
-    \end{table*}"""
+            \end{tabular}
+            }
+            \end{table*}"""
             return latex_table
 
         self.saveLatex("RQ5/standards", generate_latex_table(summary_df))
+        
+        
+    def trlTable(self):
+        df = self.df.copy()
+        
+        column = "TRL"
+        citation_column = "Citation Code"
+
+        df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
+
+        summary_df = df.groupby(column).agg(
+            Paper_Count=("Paper ID", "count"),
+            Citations=(citation_column, lambda x: ", ".join([f"\\citepPS{{{cite}}}" for cite in x.dropna().unique()]) 
+                                            if not x.dropna().empty else "\\citepPS{placeholder}")
+        ).reset_index()
+
+        summary_df = summary_df.sort_values(by="Paper_Count", ascending=False)
+
+        def generate_latex_table(summary_df):
+            latex_table = r"""\begin{table*}[]
+            \centering
+            \caption{TRL in Studies}
+            \label{tab:trl}
+            \resizebox{\textwidth}{!}{ 
+            \begin{tabular}{@{} p{2.5cm} l p{14cm} @{}}
+            \toprule
+             \multicolumn{1}{c}{\textbf{TRL}} & \multicolumn{1}{c}{\textbf{\# of studies}} & \multicolumn{1}{c}{\textbf{Studies}} \\ 
+            \midrule
+            """
+            for _, row in summary_df.iterrows():
+                category = row[column]
+                paper_count = row["Paper_Count"]
+                citations = row["Citations"]
+                latex_table += f"{category} & \\maindatabar{{{paper_count}}} & {citations} \\\\\n"
+
+            latex_table += r"""\bottomrule
+            \end{tabular}
+            }
+            \end{table*}"""
+            return latex_table
+
+        self.saveLatex("RQ5/trlTable", generate_latex_table(summary_df))
+        
+        
+    def EvaluationTable(self):
+        df = self.df.copy()
+        
+        column = "Evaluation"
+        citation_column = "Citation Code"
+
+        df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
+
+        summary_df = df.groupby(column).agg(
+            Paper_Count=("Paper ID", "count"),
+            Citations=(citation_column, lambda x: ", ".join([f"\\citepPS{{{cite}}}" for cite in x.dropna().unique()]) 
+                                            if not x.dropna().empty else "\\citepPS{placeholder}")
+        ).reset_index()
+
+        summary_df = summary_df.sort_values(by="Paper_Count", ascending=False)
+
+        def generate_latex_table(summary_df):
+            latex_table = r"""\begin{table*}[]
+            \centering
+            \caption{Evaluation in Studies}
+            \label{tab:rq5-evaluation}
+            \resizebox{\textwidth}{!}{ 
+            \begin{tabular}{@{} p{2.5cm} l p{14cm} @{}}
+            \toprule
+             \multicolumn{1}{c}{\textbf{Evaluation}} & \multicolumn{1}{c}{\textbf{\# of studies}} & \multicolumn{1}{c}{\textbf{Studies}} \\ 
+            \midrule
+            """
+            for _, row in summary_df.iterrows():
+                category = row[column]
+                paper_count = row["Paper_Count"]
+                citations = row["Citations"]
+                latex_table += f"{category} & \\maindatabar{{{paper_count}}} & {citations} \\\\\n"
+
+            latex_table += r"""\bottomrule
+            \end{tabular}
+            }
+            \end{table*}"""
+            return latex_table
+
+        self.saveLatex("RQ5/EvaluationTable", generate_latex_table(summary_df))
 
                 
                            
@@ -1048,7 +1523,7 @@ class Analysis:
 # Saving and Running Script 
 # =======================
     def savefig(self, func_name, file_type="pdf", upper_folder="overall"):
-        filename = func_name.replace(" ", "_").replace("-", "_")
+        filename = func_name.replace(" ", "_").replace("-", "_").replace("/", "_").replace("\\", "_").replace(":", "_")
         folder_path = os.path.join(results_path, upper_folder)
 
         # Ensure the folder exists
