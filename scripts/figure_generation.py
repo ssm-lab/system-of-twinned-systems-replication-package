@@ -2,11 +2,9 @@ import argparse
 import os
 import re
 import warnings
-from matplotlib.colors import Normalize
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
 from matplotlib.ticker import MultipleLocator, FuncFormatter
 import plotly.graph_objects as go
 import matplotlib.gridspec as gridspec
@@ -22,25 +20,19 @@ results_path = "./output/figures"
 
 class Analysis:
     observation_map = {
-        # 1: "papersByCountry", #Extra Stats
-        # 2: "distributionOfQualityScores", #Extra Stats
-        # 3: "publicationTrendsOverTime", #Extra Stats
         1: "intentOfSoSDT", # RQ1
-        3: "topologyExtraction", #RQ2
-        4: "coordinationExtraction", #RQ2
-        5: "dtClassDistribution", # RQ3
-        6: "levelOfIntegration", #RQ3
-        # 7: "sosDimensionsHeatmap",# RQ4
-        7: "sosDimensions", # RQ4
-        8: "sosTypeVsEmergence", #RQ4
-        9: "trlLevels", #RQ5
-        10: "trlVsContributionType", #RQ5
-        12: "frameworksBarCharts", #RQ2
-        14: "frameworksBarChartsSeperate", #RQ2
+        2: "topologyExtraction", #RQ2
+        3: "coordinationExtraction", #RQ2
+        4: "frameworksBarCharts", #RQ2
+        5: "frameworksBarChartsSeperate", #RQ2
+        6: "dtClassDistribution", # RQ3
+        7: "levelOfIntegration", #RQ3
+        8: "sosDimensions", # RQ4
+        9: "sosTypeVsEmergence", #RQ4
+        10: "trlLevels", #RQ5
+        11: "trlVsContributionType", #RQ5
     }
     
-        
-
     def __init__(self):
         if not os.path.exists(results_path):
             os.makedirs(results_path)
@@ -65,60 +57,6 @@ class Analysis:
         df = df.dropna(subset=columns_to_check)
         df = df[~(df[columns_to_check] == 0).any(axis=1)]
         return df
-
-    def papersByCountry(self):
-        country_counts = self.df["Author countries"].dropna().str.split(", ").explode().value_counts().sort_index()
-
-        # Ensure all values are integers
-        country_counts = country_counts.round(0).astype(int)
-
-        norm = Normalize(vmin=country_counts.min(), vmax=country_counts.max())
-        colours = [sns.dark_palette("#85d4ff", as_cmap=True)(norm(v)) for v in country_counts]
-
-        plt.figure(figsize=(12, 5))
-        sns.barplot(x=country_counts.index, y=country_counts.values, hue=country_counts.index, 
-                    palette=colours, ci=None, estimator=lambda x: sum(x))
-
-        plt.xlabel("Country")
-        plt.ylabel("Number of Papers")
-        plt.title("Number of Papers by Country")
-        plt.xticks(rotation=45, ha="right")
-        plt.yticks(range(0, int(max(country_counts)) + 1, 1))  # Forces integer y-ticks
-        plt.grid(axis="y", linestyle="--", alpha=0.7)
-
-        self.savefig("papersByCountry")
-
-
-        
-        
-    def distributionOfQualityScores(self):
-        plt.figure(figsize=(10, 5))
-        sns.histplot(self.df["Quality score"].dropna(), bins=10, kde=True, color="#85d4ff")
-        plt.xlabel("Quality Score")
-        plt.ylabel("Number of Papers")
-        plt.title("Distribution of Quality Scores")
-        plt.grid(axis="y", linestyle="--", alpha=0.7)
-        self.savefig("distributionOfQualityScores")
-        
-
-    def publicationTrendsOverTime(self):
-        papers_per_year = self.df["Publication year"].dropna().astype(int).value_counts().sort_index()
-
-        norm = Normalize(vmin=papers_per_year.min(), vmax=papers_per_year.max())
-        colours = [sns.dark_palette("#85d4ff", as_cmap=True)(norm(v)) for v in papers_per_year]
-
-        plt.figure(figsize=(10, 5))
-        ax = sns.barplot(x=papers_per_year.index, y=papers_per_year.values, hue = papers_per_year.index, palette=colours)
-
-        plt.xlabel("Publication Year")
-        plt.ylabel("Number of Papers")
-        plt.title("Publication Trends Over Time")
-        if ax.get_legend() is not None:
-            ax.get_legend().remove()
-        plt.xticks(rotation=45)
-        plt.grid(axis="y", linestyle="--", alpha=0.7)
-
-        self.savefig("publicationTrendsOverTime")
       
       
 # =======================
@@ -700,22 +638,6 @@ class Analysis:
 # =======================
 # RQ 4 
 # =======================   
-    def sosDimensionsHeatmap(self):
-        sos_dimensions = [str(col) for col in self.df.columns if isinstance(col, str) and col.startswith("SoS:")]
-        
-        renamed_dimensions = {col: col.replace("SoS: ", "") for col in sos_dimensions}
-        mapping = {"No": 0, "Partial": 0.5, "Yes": 1}
-        sos_dim = self.df[sos_dimensions].replace(mapping).astype(float)
-
-        sos_dim = sos_dim.rename(columns=renamed_dimensions)
-
-        plt.figure(figsize=(10, 6))
-        sns.heatmap(sos_dim.corr(), annot=True, cmap="coolwarm_r", fmt=".2f", linewidths=0.5)
-
-        plt.title("Correlation Heatmap of SoS Dimensions")
-        self.savefig("sosDimensionsHeatmap", upper_folder="RQ4")
-        
-        
     def sosDimensions(self):
         df = self.df.copy()
         sos_dimensions = [col for col in df.columns if isinstance(col, str) and col.startswith("SoS:")]

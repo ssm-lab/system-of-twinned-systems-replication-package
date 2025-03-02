@@ -1,19 +1,10 @@
 import argparse
 import os
 import re
-import warnings
-from matplotlib.colors import Normalize
-import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
-from matplotlib.ticker import MultipleLocator, FuncFormatter
-import plotly.graph_objects as go
-import matplotlib.gridspec as gridspec
 
 import pandas as pd
-import numpy as np
-import seaborn as sns
 import matplotlib.pyplot as plt
 
 pd.set_option('future.no_silent_downcasting', True)
