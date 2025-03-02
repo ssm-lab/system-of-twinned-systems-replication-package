@@ -49,6 +49,7 @@ class Analysis:
         df[columns_to_check] = df[columns_to_check].apply(pd.to_numeric, errors="coerce")
         df = df.dropna(subset=columns_to_check)
         df = df[~(df[columns_to_check] == 0).any(axis=1)]
+        df["Paper ID"] = [f"T{i+1:02d}" for i in range(len(df))]
         return df
 
 
@@ -79,222 +80,79 @@ class Analysis:
             }
             \\end{table*}"""
             return latex_table
+        
+        
+    def generate_summary_table(self, column, caption, label, tabular_size, first_column_name, save_location):
+        df = self.df.copy()
+        summary_df = df.groupby(column).agg(
+            Paper_Count=("Paper ID", "count"),
+            Citations=("Citation Code", lambda x: ", ".join(f"\\citepPS{{{cite}}}" for cite in x.dropna().unique()) if x.dropna().any() else "\\citepPS{placeholder}")
+        ).reset_index().sort_values(by="Paper_Count", ascending=False)
+
+        latex_table = self.generate_latex_table(summary_df, caption, label, tabular_size, first_column_name)
+        self.saveLatex(f"{save_location}", latex_table)
 
       
 # =======================
 # RQ 1 
 # =======================          
     def motivationsTable(self):
-        df = self.df.copy()
-        
-        motivation_column = "Motivation (Clustered)"
-        citation_column = "Citation Code"
-
-        if motivation_column not in df.columns:
-            print(f"Error: Column '{motivation_column}' not found in dataset.")
-            return
-
-        df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
-
-        summary_df = df.groupby(motivation_column).agg(
-            Paper_Count=("Paper ID", "count"),
-            Citations=(citation_column, lambda x: ", ".join([f"\\citepPS{{{cite}}}" for cite in x.dropna().unique()]) 
-                                            if not x.dropna().empty else "\\citepPS{placeholder}")
-        ).reset_index()
-
-        summary_df = summary_df.sort_values(by="Paper_Count", ascending=False)
-        
-        caption = "Motivations in Studies"
-        label = "motivations"
-        tabular_size = "p{5cm} l p{12.5cm}"
-        first_column_name = "Motivation"
-        latex_table = self.generate_latex_table(summary_df, caption, label, tabular_size, first_column_name)
-
-        self.saveLatex("RQ1/motivations", latex_table)
-
+        self.generate_summary_table("Motivation (Clustered)", "Motivations in Studies", "motivations", "p{5cm} l p{12.5cm}", "Motivation", "RQ1/motivations")
 
 # =======================
 # RQ 2
 # =======================
-
-        
-
     def topologyExtractionTable(self):
         df = self.df.copy()
-        
-        topology_column = "Topology of DT/PT"
-        citation_column = "Citation Code"
         topology_categories = ["Hierarchical", "Centralized", "Decentralized", "Distributed", "Federated"]
-        
-        df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
-        
-        def extract_topology(text):
-            if pd.isna(text):
-                return []
-            found_categories = {word.capitalize() for word in re.findall(r"\b\w+\b", str(text))}
-            return list(set(topology_categories).intersection(found_categories))
-
-        df["Extracted Topologies"] = df[topology_column].apply(extract_topology)
-        
-        exploded_df = df.explode("Extracted Topologies")
-        
-        summary_df = exploded_df.groupby("Extracted Topologies").agg(
+        df["Extracted Topologies"] = df["Topology of DT/PT"].apply(lambda x: list(set(topology_categories).intersection(re.findall(r"\b\w+\b", str(x)))) if pd.notna(x) else [])
+        summary_df = df.explode("Extracted Topologies").groupby("Extracted Topologies").agg(
             Paper_Count=("Paper ID", "count"),
-            Citations=(citation_column, lambda x: ", ".join([f"\\citepPS{{{cite}}}" for cite in x.dropna().unique()]) 
-                                        if not x.dropna().empty else "\\citepPS{placeholder}")
-        ).reset_index()
-        
-        summary_df = summary_df.sort_values(by="Paper_Count", ascending=False)
-        
-        caption = "Topologies in Studies"
-        label = "rq2-topology"
-        tabular_size = "p{3.5cm} l p{15cm}"
-        first_column_name = "Topology"
-        latex_table = self.generate_latex_table(summary_df, caption, label, tabular_size, first_column_name)
+            Citations=("Citation Code", lambda x: ", ".join(f"\\citepPS{{{cite}}}" for cite in x.dropna().unique()) if x.dropna().any() else "\\citepPS{placeholder}")
+        ).reset_index().sort_values(by="Paper_Count", ascending=False)
+        latex_table = self.generate_latex_table(summary_df, "Topologies in Studies", "rq2-topology", "p{3.5cm} l p{15cm}", "Topology")
         self.saveLatex("RQ2/topologyExtractionTable", latex_table)
 
-
     def coordinationExtractionTable(self):
-        df = self.df.copy()
-        
-        column = "Coordination (Cleaned)"
-        citation_column = "Citation Code"
+        self.generate_summary_table("Coordination (Cleaned)", "Coordination in Studies", "rq2-coordination", "p{3.5cm} l p{15cm}", "Coordination", "RQ2/coordinationExtractionTable")
 
-        df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
-
-        summary_df = df.groupby(column).agg(
-            Paper_Count=("Paper ID", "count"),
-            Citations=(citation_column, lambda x: ", ".join([f"\\citepPS{{{cite}}}" for cite in x.dropna().unique()]) 
-                                            if not x.dropna().empty else "\\citepPS{placeholder}")
-        ).reset_index()
-
-        summary_df = summary_df.sort_values(by="Paper_Count", ascending=False)
-        
-        caption = "Coordination in Studies"
-        label = "rq2-coordination"
-        tabular_size = "p{3.5cm} l p{15cm}"
-        first_column_name = "Coordination"
-        latex_table = self.generate_latex_table(summary_df, caption, label, tabular_size, first_column_name)
-        self.saveLatex("RQ2/coordinationExtractionTable", latex_table)
-        
-
-
-
+    
 # =======================
 # RQ 3 
 # =======================
-        
     def autonomyTable(self):
-        df = self.df.copy()
-        
-        column = "DT Class"
-        citation_column = "Citation Code"
+        self.generate_summary_table("DT Class", "Levels of Autonomy in Studies", "rq3-autonomy", "p{3.5cm} l p{15cm}", "Autonomy LVL", "RQ3/autonomyTable")
 
-        df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
-
-        summary_df = df.groupby(column).agg(
-            Paper_Count=("Paper ID", "count"),
-            Citations=(citation_column, lambda x: ", ".join([f"\\citepPS{{{cite}}}" for cite in x.dropna().unique()]) 
-                                            if not x.dropna().empty else "\\citepPS{placeholder}")
-        ).reset_index()
-
-        summary_df = summary_df.sort_values(by="Paper_Count", ascending=False)
-        
-        caption = "Levels of Autonomy in Studies"
-        label = "rq3-autonomy"
-        tabular_size = "p{3.5cm} l p{15cm}"
-        first_column_name = "Autonomy LVL"
-        latex_table = self.generate_latex_table(summary_df, caption, label, tabular_size, first_column_name)
-        self.saveLatex("RQ3/autonomyTable", latex_table)
-
-        
     def levelOfIntegrationTable(self):
-        df = self.df.copy()
-        
-        column = "Level of Integration (Cleaned)"
-        citation_column = "Citation Code"
+        self.generate_summary_table("Level of Integration (Cleaned)", "Level of Integration in Studies", "rq3-lvl-integration", "p{3.5cm} l p{15cm}", "Integration LVL", "RQ3/levelOfIntegrationTable")
 
-        df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
 
-        summary_df = df.groupby(column).agg(
-            Paper_Count=("Paper ID", "count"),
-            Citations=(citation_column, lambda x: ", ".join([f"\\citepPS{{{cite}}}" for cite in x.dropna().unique()]) 
-                                            if not x.dropna().empty else "\\citepPS{placeholder}")
-        ).reset_index()
-
-        summary_df = summary_df.sort_values(by="Paper_Count", ascending=False)
-        
-        caption = "Level of Integration of Constituents in Studies"
-        label = "rq3-lvl-integration"
-        tabular_size = "p{3.5cm} l p{15cm}"
-        first_column_name = "Integration LVL"
-        latex_table = self.generate_latex_table(summary_df, caption, label, tabular_size, first_column_name)
-        self.saveLatex("RQ3/levelOfIntegrationTable", latex_table)
-
-     
-     
+    
 # =======================
 # RQ 4 
 # =======================   
     def sosTypeTable(self):
-        df = self.df.copy()
-        
-        column = "Type of SoS"
-        citation_column = "Citation Code"
+            self.generate_summary_table("Type of SoS", "SoS Type in Studies", "sos-type", "p{2.5cm} l p{14cm}", "SoS", "RQ4/sosTypeTable")
 
-        df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
-
-        summary_df = df.groupby(column).agg(
-            Paper_Count=("Paper ID", "count"),
-            Citations=(citation_column, lambda x: ", ".join([f"\\citepPS{{{cite}}}" for cite in x.dropna().unique()]) 
-                                            if not x.dropna().empty else "\\citepPS{placeholder}")
-        ).reset_index()
-
-        summary_df = summary_df.sort_values(by="Paper_Count", ascending=False)
-        
-        caption = "SoS Type in Studies"
-        label = "sos-type"
-        tabular_size = "p{2.5cm} l p{14cm}"
-        first_column_name = "SoS"
-        latex_table = self.generate_latex_table(summary_df, caption, label, tabular_size, first_column_name)
-        self.saveLatex("RQ4/sosTypeTable", latex_table)
-        
-        
     def emergenceTable(self):
-        df = self.df.copy()
-        
-        column = "Emergence"
-        citation_column = "Citation Code"
-
-        df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
-
-        summary_df = df.groupby(column).agg(
-            Paper_Count=("Paper ID", "count"),
-            Citations=(citation_column, lambda x: ", ".join([f"\\citepPS{{{cite}}}" for cite in x.dropna().unique()]) 
-                                            if not x.dropna().empty else "\\citepPS{placeholder}")
-        ).reset_index()
-
-        summary_df = summary_df.sort_values(by="Paper_Count", ascending=False)
-        
-        caption = "Emergence Type in Studies"
-        label = "emergence-type"
-        tabular_size = "p{2.5cm} l p{14cm}"
-        first_column_name = "Emergence"
-        latex_table = self.generate_latex_table(summary_df, caption, label, tabular_size, first_column_name)
-        self.saveLatex("RQ4/emergenceTable", latex_table)
-        
-        
+        self.generate_summary_table("Emergence", "Emergence Type in Studies", "emergence-type", "p{2.5cm} l p{14cm}", "Emergence", "RQ4/emergenceTable")
             
 # =======================
 # RQ 5 
 # =======================
+    def trlTable(self):
+        self.generate_summary_table("TRL", "TRL in Studies", "trl", "p{2.5cm} l p{14cm}", "TRL", "RQ5/trlTable")
+
+    def EvaluationTable(self):
+        self.generate_summary_table("Evaluation", "Evaluation in Studies", "rq5-evaluation", "p{2.5cm} l p{14cm}", "Evaluation", "RQ5/EvaluationTable")
+
+                  
     def standardsTable(self, threshold = 2):
         df = self.df.copy()
     
         standards_column = "Standards Used (Cleaned Up)"
         citation_column = "Citation Code"
 
-        df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
         
         # Helper function to format citations: Remove nulls and duplicates, then wrap each citation individually with \citepPS{...}.
         def format_citations(citations):
@@ -367,76 +225,10 @@ class Analysis:
         self.saveLatex("RQ5/standards", latex_table)
         
         
-    def trlTable(self):
-        df = self.df.copy()
-        
-        column = "TRL"
-        citation_column = "Citation Code"
-
-        df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
-
-        summary_df = df.groupby(column).agg(
-            Paper_Count=("Paper ID", "count"),
-            Citations=(citation_column, lambda x: ", ".join([f"\\citepPS{{{cite}}}" for cite in x.dropna().unique()]) 
-                                            if not x.dropna().empty else "\\citepPS{placeholder}")
-        ).reset_index()
-
-        summary_df = summary_df.sort_values(by="Paper_Count", ascending=False)
-        
-        caption = "TRL in Studies"
-        label = "trl"
-        tabular_size = "p{2.5cm} l p{14cm}"
-        first_column_name = "TRL"
-        latex_table = self.generate_latex_table(summary_df, caption, label, tabular_size, first_column_name)
-        self.saveLatex("RQ5/trlTable", latex_table)
-        
-        
-    def EvaluationTable(self):
-        df = self.df.copy()
-        
-        column = "Evaluation"
-        citation_column = "Citation Code"
-
-        df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
-
-        summary_df = df.groupby(column).agg(
-            Paper_Count=("Paper ID", "count"),
-            Citations=(citation_column, lambda x: ", ".join([f"\\citepPS{{{cite}}}" for cite in x.dropna().unique()]) 
-                                            if not x.dropna().empty else "\\citepPS{placeholder}")
-        ).reset_index()
-
-        summary_df = summary_df.sort_values(by="Paper_Count", ascending=False)
-        
-        caption = "Evaluation in Studies"
-        label = "rq5-evaluation"
-        tabular_size = "p{2.5cm} l p{14cm}"
-        first_column_name = "Evaluation"
-        latex_table = self.generate_latex_table(summary_df, caption, label, tabular_size, first_column_name)
-        self.saveLatex("RQ5/EvaluationTable", latex_table)
-
-                
-                           
+                     
 # =======================
 # Saving and Running Script 
-# =======================
-    def savefig(self, func_name, file_type="pdf", upper_folder="overall"):
-        filename = func_name.replace(" ", "_").replace("-", "_").replace("/", "_").replace("\\", "_").replace(":", "_")
-        folder_path = os.path.join(results_path, upper_folder)
-
-        # Ensure the folder exists
-        os.makedirs(folder_path, exist_ok=True)
-
-        file_path = os.path.join(folder_path, f"{filename}.{file_type}")
-
-        # Remove any existing file with the same name
-        for existing_file in os.listdir(folder_path):
-            if existing_file.startswith(filename):
-                os.remove(os.path.join(folder_path, existing_file))
-
-        plt.gcf().tight_layout()
-        plt.savefig(file_path, dpi=900)  
-        plt.close()
-        
+# =======================        
     def saveLatex(self, func_name, html_content):
         output_folder = results_path
         os.makedirs(output_folder, exist_ok=True)
@@ -451,7 +243,6 @@ class Analysis:
 
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(html_content)
-
 
 
     def run_all(self):
