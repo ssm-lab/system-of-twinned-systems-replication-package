@@ -14,15 +14,19 @@ results_path = "./output/tables"
 class Analysis:
     observation_map = {
         1: "motivationsTable", #RQ1
-        2: "topologyExtractionTable", #RQ2
-        3: "coordinationExtractionTable", #RQ2
-        4: "autonomyTable", #RQ3
-        5: "levelOfIntegrationTable", #RQ3
-        6: "emergenceTable", #RQ4
-        7: "sosTypeTable", #RQ4
-        8: "trlTable", #RQ5
-        9: "EvaluationTable", #RQ5
-        10: "standardsTable", #RQ5
+        2: "intentsTable", #RQ1
+        3: "domainsTable", #RQ1
+        4: "topologyExtractionTable", #RQ2
+        5: "coordinationExtractionTable", #RQ2
+        6: "constituentUnitsTable", #RQ2
+        7: "autonomyTable", #RQ3
+        8: "levelOfIntegrationTable", #RQ3
+        9: "emergenceTable", #RQ4
+        10: "sosTypeTable", #RQ4
+        11: "trlTable", #RQ5
+        12: "EvaluationTable", #RQ5
+        13: "standardsTable", #RQ5
+        14: "contributionTypeTable", #RQ5
     }
     
     
@@ -98,6 +102,12 @@ class Analysis:
 # =======================          
     def motivationsTable(self):
         self.generate_summary_table("Motivation (Clustered)", "Motivations in Studies", "motivations", "p{5cm} l p{12.5cm}", "Motivation", "RQ1/motivations")
+        
+    def intentsTable(self):
+        self.generate_summary_table("Intent", "Intents in Studies", "rq1-intent", "p{5cm} l p{12.5cm}", "Intent", "RQ1/intentsTable")
+        
+    def domainsTable(self):
+        self.generate_summary_table("Domain (Aggregated)", "Domains of Studies", "rq1-domains", "p{5cm} l p{12.5cm}", "Domain", "RQ1/domainsTable")
 
 # =======================
 # RQ 2
@@ -115,7 +125,9 @@ class Analysis:
 
     def coordinationExtractionTable(self):
         self.generate_summary_table("Coordination (Cleaned)", "Coordination in Studies", "rq2-coordination", "p{3.5cm} l p{15cm}", "Coordination", "RQ2/coordinationExtractionTable")
-
+    
+    def constituentUnitsTable(self):
+        self.generate_summary_table("Constituent unit (Aggregated)", "Constituent Units in Studies", "rq2-constituent-units", "p{5cm} l p{12.5cm}", "Constituent Unit", "RQ2/constituentUnitsTable")
     
 # =======================
 # RQ 3 
@@ -145,7 +157,9 @@ class Analysis:
 
     def EvaluationTable(self):
         self.generate_summary_table("Evaluation", "Evaluation in Studies", "rq5-evaluation", "p{2.5cm} l p{14cm}", "Evaluation", "RQ5/EvaluationTable")
-
+        
+    def contributionTypeTable(self):
+        self.generate_summary_table("Contribution type", "Contribution Type in Studies", "rq5-contribution-type", "p{5cm} l p{12.5cm}", "Contribution Type", "RQ5/contributionTypeTable")
                   
     def standardsTable(self, threshold = 2):
         df = self.df.copy()
