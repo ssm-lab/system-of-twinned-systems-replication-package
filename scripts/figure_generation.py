@@ -21,15 +21,10 @@ results_path = "./output/figures"
 class Analysis:
     observation_map = {
         1: "intentOfSoSDT", # RQ1
-        2: "topologyExtraction", #RQ2
-        3: "coordinationExtraction", #RQ2
         4: "frameworksBarCharts", #RQ2
         5: "frameworksBarChartsSeperate", #RQ2
-        6: "dtClassDistribution", # RQ3
-        7: "levelOfIntegration", #RQ3
         8: "sosDimensions", # RQ4
         9: "sosTypeVsEmergence", #RQ4
-        10: "trlLevels", #RQ5
         11: "trlVsContributionType", #RQ5
     }
     
@@ -65,42 +60,28 @@ class Analysis:
         
     def intentOfSoSDT(self):
         df = self.df.copy()
-
-       # Group by "Intent" and "Domain (Aggregated)" to get counts
         intent_domain_counts = df.groupby(["Intent", "Domain (Aggregated)"]).size().reset_index(name="Count")
-
-        # Pivot the data so that rows are domains and columns are intents
         pivot_df = intent_domain_counts.pivot(index="Domain (Aggregated)", columns="Intent", values="Count").fillna(0)
+        dt_col, sos_col = pivot_df.columns[:2].tolist()
 
-        # Ensure we have the two expected intents. If available, use them:
-        if "DT" in pivot_df.columns and "SoS" in pivot_df.columns:
-            dt_col = "DT"
-            sos_col = "SoS"
-        else:
-            # Fallback: use the first column as DT and the second as SoS
-            dt_col, sos_col = pivot_df.columns[0], pivot_df.columns[1]
 
-        # Create ordering groups using the original (non-mirrored) counts:
         # Group 1: SoS-exclusive (DT==0 and SoS>0)
         # Group 2: Common (DT>0 and SoS>0)
         # Group 3: DT-exclusive (DT>0 and SoS==0)
-        pivot_df["order_group"] = 2  # default: common
+        pivot_df["order_group"] = 2
         pivot_df.loc[(pivot_df[dt_col] == 0) & (pivot_df[sos_col] > 0), "order_group"] = 1
         pivot_df.loc[(pivot_df[dt_col] > 0) & (pivot_df[sos_col] == 0), "order_group"] = 3
 
-        # Compute the difference for further ordering (SoS minus DT)
-        pivot_df["difference"] = pivot_df[sos_col] - pivot_df[dt_col]
 
-        # Now sort first by the defined group and then by the difference (descending)
+        pivot_df["difference"] = pivot_df[sos_col] - pivot_df[dt_col]
         pivot_df = pivot_df.sort_values(by=["order_group", "difference"], ascending=[True, False])
         y_categories = pivot_df.index.tolist()
 
         # Mirror the DT column for plotting (so that DT bars extend to the left)
         pivot_df["DT_mirrored"] = -pivot_df[dt_col]
 
-        # Create the mirror (population pyramid–style) horizontal bar chart using Plotly
-        fig = go.Figure()
 
+        fig = go.Figure()
         # Trace for DT (mirrored to the left)
         fig.add_trace(go.Bar(
             y=y_categories,
@@ -161,138 +142,6 @@ class Analysis:
 # =======================
 # RQ 2
 # =======================
- 
-    def topologyExtraction(self):
-        warnings.simplefilter(action='ignore', category=FutureWarning)
-        df = self.df.copy()
-        df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
-
-        topology_column = "Topology of DT/PT"
-        topology_categories = ["Hierarchical", "Centralized", "Decentralized", "Distributed", "Federated"]
-
-        def extract_topology(text):
-            if pd.isna(text):
-                return []
-            found_categories = {word.capitalize() for word in re.findall(r"\b\w+\b", str(text))}
-            return list(set(topology_categories).intersection(found_categories))
-
-        df["Extracted Topologies"] = df[topology_column].apply(extract_topology)
-
-        for topology in topology_categories:
-            df[topology] = df["Extracted Topologies"].apply(lambda x: 1 if topology in x else 0)
-
-        topology_counts = pd.DataFrame({
-            "Topology": topology_categories, 
-            "Count": [df[topology].sum() for topology in topology_categories] 
-        })
-
-        total_papers = df["Paper ID"].nunique()  # Get total unique papers
-        topology_counts["Percentage"] = (topology_counts["Count"] / total_papers) * 100
-
-        topology_counts = topology_counts.sort_values(by="Percentage", ascending=True)
-
-        fig, ax = plt.subplots(figsize=(8, 5))
-        ax.set_xlim(0, 100)
-        indexes = np.arange(len(topology_counts))
-
-        bars = ax.barh(indexes, topology_counts["Percentage"], color="#85d4ff")
-
-        labels = [
-            f"{row['Topology']} ({row['Count']}) \u2014 {row['Percentage']:.1f}%" 
-            for _, row in topology_counts.iterrows()
-        ]
-        
-        ax.set_yticks(indexes)
-        ax.set_yticklabels(labels, ha="left")
-
-        # Remove plot borders
-        ax.spines["right"].set_visible(False)
-        ax.spines["top"].set_visible(False)
-        ax.spines["bottom"].set_visible(False)
-
-        # Remove x-axis ticks and labels
-        ax.tick_params(axis="x", which="both", bottom=False, top=False, labelbottom=False)
-
-        # Adjust y-tick settings
-        ax.tick_params(axis="y", direction="out", pad=-10)
-        ax.yaxis.set_ticks_position("none")
-
-        # Title as rotated y-axis label
-        ax.set_ylabel("Topology", rotation=90, fontsize=12, labelpad=7)
-
-        # Adjust font sizes
-        labels = ax.get_yticklabels() + ax.get_xticklabels()
-        for label in labels:
-            label.set_fontsize(13)
-
-        # Adjust figure size
-        fig.set_size_inches(8, 0.33 * len(topology_counts))
-        plt.tight_layout()
-
-        self.savefig("topologyExtraction", upper_folder="RQ2")
-    
-        
-        
-    def coordinationExtraction(self):
-        warnings.simplefilter(action='ignore', category=FutureWarning)
-        df = self.df.copy()
-        df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
-
-        categories = ["Peer-to-Peer (P2P)", "DT Orchestrated", "No Control", "System Orchestrated", "Hybrid"]
-
-        for cat in categories:
-            df[cat] = df["Coordination (Cleaned)"].apply(lambda x: 1 if cat in x else 0)
-
-        counts = pd.DataFrame({
-            "Coordination": categories, 
-            "Count": [df[cat].sum() for cat in categories] 
-        })
-
-        total_papers = df["Paper ID"].nunique()  # Get total unique papers
-        counts["Percentage"] = (counts["Count"] / total_papers) * 100
-
-        counts = counts.sort_values(by="Percentage", ascending=True)
-
-        fig, ax = plt.subplots(figsize=(8, 5))
-        ax.set_xlim(0, 100)
-        indexes = np.arange(len(counts))
-
-        bars = ax.barh(indexes, counts["Percentage"], color="#85d4ff")
-
-        labels = [
-            f"{row['Coordination']} ({row['Count']}) \u2014 {row['Percentage']:.1f}%" 
-            for _, row in counts.iterrows()
-        ]
-        
-        ax.set_yticks(indexes)
-        ax.set_yticklabels(labels, ha="left")
-
-        # Remove plot borders
-        ax.spines["right"].set_visible(False)
-        ax.spines["top"].set_visible(False)
-        ax.spines["bottom"].set_visible(False)
-
-        # Remove x-axis ticks and labels
-        ax.tick_params(axis="x", which="both", bottom=False, top=False, labelbottom=False)
-
-        # Adjust y-tick settings
-        ax.tick_params(axis="y", direction="out", pad=-10)
-        ax.yaxis.set_ticks_position("none")
-
-        # Title as rotated y-axis label
-        ax.set_ylabel("Coordination", rotation=90, fontsize=12, labelpad=7)
-
-        # Adjust font sizes
-        labels = ax.get_yticklabels() + ax.get_xticklabels()
-        for label in labels:
-            label.set_fontsize(13)
-
-        # Adjust figure size
-        fig.set_size_inches(8, 0.33 * len(counts))
-        plt.tight_layout()
-
-        self.savefig("coordinationExtraction", upper_folder="RQ2")
-        
         
     def frameworksBarCharts(self, threshold=1):
         df = self.df.copy()
@@ -511,129 +360,7 @@ class Analysis:
 # =======================
 # RQ 3 
 # =======================
-    def dtClassDistribution(self):
-        warnings.simplefilter(action='ignore', category=FutureWarning)
-        
-        df = self.df.copy()
-        df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
-        
-        # Define the DT related classes
-        dt_related = ["Human-actuated digital twin", "Human-supervised digital twin", "Digital twin"]
-        
-        # Group by DT Class only
-        dt_class_counts = df.groupby("DT Class").size().reset_index(name="Count")
-        total_count = df["Paper ID"].nunique()  # Get total unique papers
-        dt_class_counts["Percentage"] = dt_class_counts["Count"] / total_count * 100
-        
-        # Mark DT related classes for ordering
-        dt_class_counts["Is_DT_Related"] = dt_class_counts["DT Class"].apply(
-            lambda x: 0 if x in dt_related else 1
-        )
-        
-        # Sort so that DT related classes (Is_DT_Related=1) appear at the top.
-        # Within each group, sort by percentage in ascending order.
-        dt_class_counts = dt_class_counts.sort_values(
-            by=["Is_DT_Related", "Percentage"], ascending=[False, True]
-        )
-        
-        # Create a horizontal bar chart
-        fig, ax = plt.subplots(figsize=(8, 0.33 * len(dt_class_counts)))
-        ax.set_xlim(0, 100)
-        indexes = np.arange(len(dt_class_counts))
-        bars = ax.barh(indexes, dt_class_counts["Percentage"], color="#85d4ff")
-        
-        # Format the y-axis labels: "DT Class (Count) — Percentage%"
-        labels = [
-            f"{row['DT Class']} ({row['Count']}) \u2014 {row['Percentage']:.1f}%"
-            for _, row in dt_class_counts.iterrows()
-        ]
-        
-        ax.set_yticks(indexes)
-        ax.set_yticklabels(labels, ha="left")
-        
-        # Remove unnecessary plot borders and ticks for a cleaner look
-        ax.spines["right"].set_visible(False)
-        ax.spines["top"].set_visible(False)
-        ax.spines["bottom"].set_visible(False)
-        ax.tick_params(axis="x", which="both", bottom=False, top=False, labelbottom=False)
-        ax.tick_params(axis="y", direction="out", pad=-10)
-        ax.yaxis.set_ticks_position("none")
-        
-        # Set the y-axis label (rotated)
-        ax.set_ylabel("DT Class", rotation=90, fontsize=12, labelpad=7)
-        
-        # Adjust tick label font sizes
-        for label in ax.get_yticklabels() + ax.get_xticklabels():
-            label.set_fontsize(13)
-        
-        plt.tight_layout()
-        
-        # Save the figure using the class's savefig method
-        self.savefig("dtClassDistribution", upper_folder="RQ3")
-        
-   
-    def levelOfIntegration(self):
-        warnings.simplefilter(action='ignore', category=FutureWarning)
-        df = self.df.copy()
-        df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
-
-
-        categories = ["Data Exchange", "Model Exchange", "Co-Simulation"]
-
-        for cat in categories:
-            df[cat] = df["Level of Integration (Cleaned)"].apply(lambda x: 1 if cat in x else 0)
-
-        counts = pd.DataFrame({
-            "Level of Integration": categories, 
-            "Count": [df[cat].sum() for cat in categories] 
-        })
-
-        
-        total_papers = df["Paper ID"].nunique()  # Get total unique papers
-        counts["Percentage"] = (counts["Count"] / total_papers) * 100
-
-        counts = counts.sort_values(by="Percentage", ascending=True)
-
-        fig, ax = plt.subplots(figsize=(8, 5))
-        ax.set_xlim(0, 100)
-        indexes = np.arange(len(counts))
-
-        bars = ax.barh(indexes, counts["Percentage"], color="#85d4ff")
-
-        labels = [
-            f"{row['Level of Integration']} ({row['Count']}) \u2014 {row['Percentage']:.1f}%" 
-            for _, row in counts.iterrows()
-        ]
-        
-        ax.set_yticks(indexes)
-        ax.set_yticklabels(labels, ha="left")
-
-        # Remove plot borders
-        ax.spines["right"].set_visible(False)
-        ax.spines["top"].set_visible(False)
-        ax.spines["bottom"].set_visible(False)
-
-        # Remove x-axis ticks and labels
-        ax.tick_params(axis="x", which="both", bottom=False, top=False, labelbottom=False)
-
-        # Adjust y-tick settings
-        ax.tick_params(axis="y", direction="out", pad=-10)
-        ax.yaxis.set_ticks_position("none")
-
-        # Title as rotated y-axis label
-        ax.set_ylabel("Integration", rotation=90, fontsize=12, labelpad=7)
-
-        # Adjust font sizes
-        labels = ax.get_yticklabels() + ax.get_xticklabels()
-        for label in labels:
-            label.set_fontsize(13)
-
-        # Adjust figure size
-        fig.set_size_inches(8, 0.33 * len(counts))
-        plt.tight_layout()
-
-        self.savefig("levelOfIntegration", upper_folder="RQ3")
-        
+    
         
 # =======================
 # RQ 4 
@@ -771,7 +498,6 @@ class Analysis:
         ax.set_yticks(y_positions)
         ax.set_yticklabels(sos_labels, fontsize=18, ha="right")
 
-        # Remove unnecessary plot borders
         ax.spines["right"].set_visible(False)
         ax.spines["top"].set_visible(False)
         ax.spines["bottom"].set_visible(False)
@@ -792,100 +518,27 @@ class Analysis:
 # =======================
 # RQ 5 
 # =======================
-        
-    def trlLevels(self):
-        warnings.simplefilter(action='ignore', category=FutureWarning)
-        df = self.df.copy()
-
-        # Define TRL levels in the desired order
-        trl_order = ["Initial", "Proof-of-Concept", "Demo prototype", "Deployed prototype", "Operational"]
-        df["TRL"] = pd.Categorical(df["TRL"], categories=trl_order, ordered=True)
-
-        trl_counts = df["TRL"].value_counts().reindex(trl_order, fill_value=0)
-
-        total_papers = trl_counts.sum()
-        trl_percentage = (trl_counts / total_papers) * 100
-
-        trl_df = pd.DataFrame({
-            "TRL Level": trl_order,  
-            "Count": trl_counts.values,
-            "Percentage": trl_percentage.values
-        })
-
-        # Reverse order for correct top-to-bottom plotting
-        trl_df = trl_df[::-1]
-
-        fig, ax = plt.subplots(figsize=(8, 5))
-        indexes = np.arange(len(trl_df))
-
-        bars = ax.barh(indexes, trl_df["Percentage"], color="#85d4ff")
-
-        # Label bars with TRL Level and Count
-        labels = [
-            f"{row['TRL Level']} ({row['Count']})" 
-            for _, row in trl_df.iterrows()
-        ]
-        
-        ax.set_yticks(indexes)
-        ax.set_yticklabels(labels, ha="left")
-
-        # Remove plot borders
-        ax.spines["right"].set_visible(False)
-        ax.spines["top"].set_visible(False)
-        ax.spines["bottom"].set_visible(False)
-
-        # Remove x-axis ticks and labels
-        ax.tick_params(axis="x", which="both", bottom=False, top=False, labelbottom=False)
-
-        # Adjust y-tick settings
-        ax.tick_params(axis="y", direction="out", pad=-10)
-        ax.yaxis.set_ticks_position("none")
-
-        # Title as rotated y-axis label
-        ax.set_ylabel("TRL Level", rotation=90, fontsize=12, labelpad=7)
-
-        # Adjust font sizes
-        labels = ax.get_yticklabels() + ax.get_xticklabels()
-        for label in labels:
-            label.set_fontsize(13)
-
-        # Adjust figure size
-        fig.set_size_inches(8, 0.33 * len(trl_df))
-        plt.tight_layout()
-
-        self.savefig("trlLevels", upper_folder="RQ5")
-
-        
-        
-    
-    
+                
     def trlVsContributionType(self):
         df = self.df.copy()
 
-        # Define TRL order (Ensure it's explicitly ordered)
         trl_order = ["Initial", "Proof-of-Concept", "Demo prototype", "Deployed prototype", "Operational"]
         df["TRL"] = pd.Categorical(df["TRL"], categories=trl_order, ordered=True)
 
-        # Count occurrences of TRL and Contribution Type
         trl_contribution_counts = df.groupby(["TRL", "Contribution type"]).size().reset_index(name="Count")
 
-        # Pivot table for visualization
         pivot_df = trl_contribution_counts.pivot(index="TRL", columns="Contribution type", values="Count").fillna(0)
 
-        # Sort TRLs in predefined order (Ensure Initial is at the top)
         pivot_df = pivot_df.reindex(trl_order[::-1])  # Reverse order to put Initial at the top
 
-        # Get TRL and Contribution type labels
         trl_types = pivot_df.index.tolist()
         contribution_types = pivot_df.columns.tolist()
 
         colors = ["#3182bd", "#b5bbc3", "#de2d26"]
 
-        # Bar settings
         num_contributions = len(contribution_types)
-        bar_height = 0.7 / num_contributions  # Ensure sub-bars fit within each TRL category
-        y_positions = np.arange(len(trl_types))  # Main y-axis positions (reversed for correct order)
-
+        bar_height = 0.7 / num_contributions 
+        y_positions = np.arange(len(trl_types))
         fig, ax = plt.subplots(figsize=(10, 7))
 
         # Plot bars for each Contribution Type within each TRL
@@ -912,7 +565,6 @@ class Analysis:
         ax.set_yticks(y_positions)
         ax.set_yticklabels(trl_labels, fontsize=18, ha="right")
 
-        # Remove unnecessary plot borders
         ax.spines["right"].set_visible(False)
         ax.spines["top"].set_visible(False)
         ax.spines["bottom"].set_visible(False)
