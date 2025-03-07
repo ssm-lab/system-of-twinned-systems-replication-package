@@ -27,10 +27,9 @@ class Analysis:
         12: "EvaluationTable", #RQ5
         13: "standardsTable", #RQ5
         14: "contributionTypeTable", #RQ5
-        15: "generalProgrammingLanguagesTable", #RQ2
-        16: "markupStylingProgrammingLanguagesTable", #RQ2
         17: "dtServicesTable", #RQ3
-        18: "dataRepresentationFormatTable", #RQ2
+        20: "programmingLangaugesTables", #RQ2
+        19: "frameworksTables", #RQ3
     }
     
     
@@ -89,7 +88,7 @@ class Analysis:
             \\end{table*}"""
             return latex_table
         
-        
+    # For simple tables with one item per row  
     def generate_summary_table(self, column, caption, label, tabular_size, first_column_name, save_location):
         df = self.df.copy()
         summary_df = df.groupby(column).agg(
@@ -100,6 +99,7 @@ class Analysis:
         latex_table = self.generate_latex_table(summary_df, caption, label, tabular_size, first_column_name)
         self.saveLatex(f"{save_location}", latex_table)
         
+    # For tables with multiple items per row seperated by a delimiter
     def generate_delimiter_table(self, column, caption, label, tabular_size, first_column_name, save_location, delimiter=","):
         df = self.df.copy()
         citation_column = "Citation Code"
@@ -135,8 +135,56 @@ class Analysis:
         # Generate LaTeX table
         latex_table = self.generate_latex_table(summary_df, caption, label, tabular_size, first_column_name)
         self.saveLatex(save_location, latex_table)
+        
+    # for tables with multiple items per row and need an other category based on a frequency threshold
+    def generate_other_cat_table(self, group_by_col, latex_caption, latex_label, latex_tabular_size, latex_first_column, latex_filename, delimiter = ", ", threshold=2):
+        df = self.df.copy()
+        citation_col = "Citation Code"
+        count_col = "Paper ID"
 
+        # Helper function to format citations
+        def format_citations(citations):
+            unique = {cite for cite in citations if pd.notna(cite)}
+            return ", ".join(f"\\citepPS{{{c}}}" for c in unique) if unique else "\\citepPS{placeholder}"
 
+        # Extract and explode values by delimiter
+        rows = [
+            {group_by_col: value.strip(), "Paper ID": row[count_col], "Citation Code": row[citation_col]}
+            for _, row in df.iterrows() if pd.notna(row[group_by_col])
+            for value in str(row[group_by_col]).split(delimiter) if value.strip()
+        ]
+
+        exploded_df = pd.DataFrame(rows)
+
+        # Aggregate data
+        agg_funcs = {"Paper_Count": ("Paper ID", "nunique")}
+        if citation_col:
+            agg_funcs["Citations"] = ("Citation Code", lambda x: format_citations(x.dropna()))
+
+        summary_df = exploded_df.groupby(group_by_col).agg(**agg_funcs).reset_index()
+
+        # Identify low-frequency items
+        mask = summary_df["Paper_Count"] <= threshold
+
+        if mask.all():  # If ALL items fall into "Other", keep them listed individually
+            summary_df = summary_df.sort_values(by="Paper_Count", ascending=False)
+        elif mask.any():  # If some, but not all, items are below the threshold, group them into "Other"
+            other_citations = exploded_df.loc[exploded_df[group_by_col].isin(summary_df[mask][group_by_col]), citation_col] if citation_col else None
+            summary_df = summary_df[~mask].sort_values(by="Paper_Count", ascending=False)
+
+            # Create "Other" category
+            other_row = {
+                group_by_col: "Other",
+                "Paper_Count": other_citations.nunique() if citation_col else mask.sum(),
+                "Citations": format_citations(other_citations.dropna()) if citation_col else None
+            }
+            summary_df = pd.concat([summary_df, pd.DataFrame([other_row])], ignore_index=True)
+
+        # Generate and save LaTeX table
+        latex_table = self.generate_latex_table(summary_df, latex_caption, latex_label, latex_tabular_size, latex_first_column)
+        self.saveLatex(latex_filename, latex_table)
+
+        
         
 # =======================
 # RQ 1 
@@ -170,7 +218,7 @@ class Analysis:
     def constituentUnitsTable(self):
         self.generate_summary_table("Constituent unit (higher level aggregation)", "Constituent Units in Studies", "rq2-constituent-units", "p{5cm} l p{12.5cm}", "Constituent Unit", "RQ2/constituentUnitsTable")
         
-    def generalProgrammingLanguagesTable(self):        
+    def programmingLangaugesTables(self):        
         self.generate_delimiter_table(
         column="Programming Languages (General Purpose)", 
         caption="Programming Languages Used in Papers", 
@@ -179,9 +227,7 @@ class Analysis:
         first_column_name="Programming Language", 
         save_location="RQ2/generalProgrammingLanguagesTable"
         )
-
         
-    def markupStylingProgrammingLanguagesTable(self):
         self.generate_delimiter_table(
             column="Programming Languages (Markup, Styling)", 
             caption="Styling and Markup Programming Languages Used in Papers", 
@@ -191,15 +237,45 @@ class Analysis:
             save_location="RQ2/markupStylingProgrammingLanguagesTable"
         )
         
-    def dataRepresentationFormatTable(self):
         self.generate_delimiter_table(
         column="Programming Languages (Data Representation)", 
         caption="Data Representation Formats Used in Papers", 
-        label="rq2-data-representation-formats-language", 
+        label="rq2-data-representation-formats", 
         tabular_size="p{5cm} l p{11.5cm}", 
         first_column_name="Data Format", 
         save_location="RQ2/dataRepresentationFormatTable"
     )
+
+        
+    def frameworksTables(self):
+        threshold = 1
+        delimiter = ", "
+
+        # Dictionary mapping column names to LaTeX labels and filenames
+        categories = {
+            "Digital Twin & IoT": ("DT and IoT Frameworks used in Studies", "rq2-frameworks-dt-iot", "RQ2/frameworks_tables/dtIot"),
+            "Modeling & Simulation": ("Modeling and Simulation Frameworks", "rq2-frameworks-modeling", "RQ2/frameworks_tables/modeling"),
+            "AI, Data Analytics & Machine Learning": ("AI and Data Analytics Frameworks", "rq2-frameworks-ai", "RQ2/frameworks_tables/ai"),
+            "Cloud, Edge, and DevOps": ("Cloud and Edge Frameworks", "rq2-frameworks-cloud", "RQ2/frameworks_tables/cloud"),
+            "Systems Engineering & Architecture": ("Systems Engineering Frameworks", "rq2-frameworks-systems", "RQ2/frameworks_tables/systems"),
+            "Data Management": ("Data Management Frameworks", "rq2-frameworks-data", "RQ2/frameworks_tables/data"),
+            "Geospatial & Visualization Technologies": ("Geospatial and Visualization Frameworks", "rq2-frameworks-geo", "RQ2/frameworks_tables/geo"),
+            "Application Development & Web Technologies": ("App Development and Web Frameworks", "rq2-frameworks-appdev", "RQ2/frameworks_tables/appdev"),
+        }
+
+        # Loop through each category and generate the LaTeX table
+        for column, (caption, label, filename) in categories.items():
+            self.generate_other_cat_table(
+                group_by_col=column,
+                latex_caption=caption,
+                latex_label=label,
+                latex_tabular_size="p{3.5cm} l p{15cm}",
+                latex_first_column="Tool",
+                latex_filename=filename,
+                delimiter=delimiter,
+                threshold=threshold,
+            )
+
     
 # =======================
 # RQ 3 
@@ -243,82 +319,46 @@ class Analysis:
     def contributionTypeTable(self):
         self.generate_summary_table("Contribution type", "Contribution Type in Studies", "rq5-contribution-type", "p{5cm} l p{12.5cm}", "Contribution Type", "RQ5/contributionTypeTable")
                   
-    def standardsTable(self, threshold = 2):
+    def standardsTable(self, threshold=2):
         df = self.df.copy()
-    
         standards_column = "Standards Used (Cleaned Up)"
         citation_column = "Citation Code"
 
-        
-        # Helper function to format citations: Remove nulls and duplicates, then wrap each citation individually with \citepPS{...}.
         def format_citations(citations):
-            citations = [cite for cite in citations if pd.notna(cite)]
-            seen = set()
-            unique = []
-            for c in citations:
-                if c not in seen:
-                    seen.add(c)
-                    unique.append(c)
-            return ", ".join([f"\\citepPS{{{c}}}" for c in unique]) if unique else "\\citepPS{placeholder}"
-        
-        # Extract individual standards.
-        # Assume each cell is a semicolon-separated list.
-        rows = []
-        for _, row in df.iterrows():
-            standards = row[standards_column]
-            if pd.isna(standards):
-                continue
-            # Split by semicolon and remove extra whitespace.
-            standards_list = [s.strip() for s in str(standards).split(";") if s.strip()]
-            for std in standards_list:
-                rows.append({
-                    "Standard": std,
-                    "Paper ID": row["Paper ID"],
-                    "Citation Code": row[citation_column] if citation_column in row else None
-                })
-        
-        # Create an exploded DataFrame where each row corresponds to one standard occurrence.
+            unique = {cite for cite in citations if pd.notna(cite)}
+            return ", ".join(f"\\citepPS{{{c}}}" for c in unique) if unique else "\\citepPS{placeholder}"
+
+        rows = [
+            {"Standard": std.strip(), "Paper ID": row["Paper ID"], "Citation Code": row[citation_column]}
+            for _, row in df.iterrows() if pd.notna(row[standards_column])
+            for std in str(row[standards_column]).split(";") if std.strip()
+        ]
+
         exploded_df = pd.DataFrame(rows)
-        
-        # Group by Standard to count unique papers and aggregate citations.
+
+        # Aggregate by frequency
         summary_df = exploded_df.groupby("Standard").agg(
             Paper_Count=("Paper ID", "nunique"),
-            Citations=(citation_column, lambda x: ", ".join([f"\\citepPS{{{cite}}}" 
-                                                            for cite in x.dropna().unique()]) 
-                                            if not x.dropna().empty else "\\citepPS{placeholder}")
+            Citations=(citation_column, lambda x: format_citations(x.dropna()))
         ).reset_index()
-        
-        # Identify low-frequency standards (those mentioned in only one paper).
+
+        # Create other category for low frequency items
         mask = summary_df["Paper_Count"] <= threshold
-        other_row = pd.DataFrame()
-        if mask.sum() > 0:
-            # Get the list of low-frequency standards.
-            low_freq_standards = summary_df[mask]["Standard"].tolist()
-            other_raw_citations = exploded_df.loc[
-                exploded_df["Standard"].isin(low_freq_standards), citation_column
-            ].dropna().unique()
-            other_row = pd.DataFrame([{
-                "Standard": "Other",
-                "Paper_Count": len(other_raw_citations), # count based on the number of papers, rather than number of standards (one paper might use multiple standards)
-                "Citations": format_citations(other_raw_citations)
-            }])
-            # Remove low-frequency standards from the summary.
-            summary_df = summary_df[~mask]
+        if mask.any():
+            other_citations = exploded_df.loc[exploded_df["Standard"].isin(summary_df[mask]["Standard"]), citation_column]
+            summary_df = summary_df[~mask].sort_values(by="Paper_Count", ascending=False)
+            summary_df = pd.concat([
+                summary_df,
+                pd.DataFrame([{
+                    "Standard": "Other",
+                    "Paper_Count": other_citations.nunique(),
+                    "Citations": format_citations(other_citations.dropna())
+                }])
+            ], ignore_index=True)
         
-        # Sort the remaining standards by count
-        summary_df = summary_df.sort_values(by="Paper_Count", ascending=False)
-        
-        # Append the "Other" category row at the end
-        if not other_row.empty:
-            summary_df = pd.concat([summary_df, other_row], ignore_index=True)
-            
-        
-        caption = "Standards Used in Papers"
-        label = "standards"
-        tabular_size = "p{5cm} l p{11.5cm}"
-        first_column_name = "Standard"
-        latex_table = self.generate_latex_table(summary_df, caption, label, tabular_size, first_column_name)
+        latex_table = self.generate_latex_table(summary_df, "Standards Used in Papers", "standards", "p{5cm} l p{11.5cm}", "Standard")
         self.saveLatex("RQ5/standards", latex_table)
+
         
         
                      
