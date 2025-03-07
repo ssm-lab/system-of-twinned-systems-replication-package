@@ -27,6 +27,10 @@ class Analysis:
         12: "EvaluationTable", #RQ5
         13: "standardsTable", #RQ5
         14: "contributionTypeTable", #RQ5
+        15: "generalProgrammingLanguagesTable", #RQ2
+        16: "markupStylingProgrammingLanguagesTable", #RQ2
+        17: "dtServicesTable", #RQ3
+        18: "dataRepresentationFormatTable", #RQ2
     }
     
     
@@ -95,8 +99,45 @@ class Analysis:
 
         latex_table = self.generate_latex_table(summary_df, caption, label, tabular_size, first_column_name)
         self.saveLatex(f"{save_location}", latex_table)
+        
+    def generate_delimiter_table(self, column, caption, label, tabular_size, first_column_name, save_location, delimiter=","):
+        df = self.df.copy()
+        citation_column = "Citation Code"
+        rows = []
 
-      
+        for _, row in df.iterrows():
+            main_values = row[column]
+            if pd.isna(main_values):
+                continue
+            # Split values and strip whitespace
+            main_values_list = [s.strip() for s in str(main_values).split(delimiter) if s.strip()]
+            for val in main_values_list:
+                rows.append({
+                    "Value": val,
+                    "Paper ID": row["Paper ID"],
+                    "Citation Code": row[citation_column] if citation_column in row else None
+                })
+
+        # Create an exploded DataFrame
+        exploded_df = pd.DataFrame(rows)
+
+        # Group by unique values and aggregate the number of studies and citations
+        summary_df = exploded_df.groupby("Value").agg(
+            Paper_Count=("Paper ID", "nunique"),
+            Citations=(citation_column, lambda x: ", ".join([f"\\citepPS{{{cite}}}" 
+                                                            for cite in x.dropna().unique()]) 
+                                            if not x.dropna().empty else "\\citepPS{placeholder}")
+        ).reset_index()
+
+        # Sort by Paper_Count in descending order
+        summary_df = summary_df.sort_values(by="Paper_Count", ascending=False)
+
+        # Generate LaTeX table
+        latex_table = self.generate_latex_table(summary_df, caption, label, tabular_size, first_column_name)
+        self.saveLatex(save_location, latex_table)
+
+
+        
 # =======================
 # RQ 1 
 # =======================          
@@ -127,7 +168,38 @@ class Analysis:
         self.generate_summary_table("Coordination (Cleaned)", "Coordination in Studies", "rq2-coordination", "p{3.5cm} l p{15cm}", "Coordination", "RQ2/coordinationExtractionTable")
     
     def constituentUnitsTable(self):
-        self.generate_summary_table("Constituent unit (Aggregated)", "Constituent Units in Studies", "rq2-constituent-units", "p{5cm} l p{12.5cm}", "Constituent Unit", "RQ2/constituentUnitsTable")
+        self.generate_summary_table("Constituent unit (higher level aggregation)", "Constituent Units in Studies", "rq2-constituent-units", "p{5cm} l p{12.5cm}", "Constituent Unit", "RQ2/constituentUnitsTable")
+        
+    def generalProgrammingLanguagesTable(self):        
+        self.generate_delimiter_table(
+        column="Programming Languages (General Purpose)", 
+        caption="Programming Languages Used in Papers", 
+        label="rq2-programming-language", 
+        tabular_size="p{5cm} l p{11.5cm}", 
+        first_column_name="Programming Language", 
+        save_location="RQ2/generalProgrammingLanguagesTable"
+        )
+
+        
+    def markupStylingProgrammingLanguagesTable(self):
+        self.generate_delimiter_table(
+            column="Programming Languages (Markup, Styling)", 
+            caption="Styling and Markup Programming Languages Used in Papers", 
+            label="rq2-markup-styling-programming-language", 
+            tabular_size="p{5cm} l p{11.5cm}", 
+            first_column_name="Programming Language", 
+            save_location="RQ2/markupStylingProgrammingLanguagesTable"
+        )
+        
+    def dataRepresentationFormatTable(self):
+        self.generate_delimiter_table(
+        column="Programming Languages (Data Representation)", 
+        caption="Data Representation Formats Used in Papers", 
+        label="rq2-data-representation-formats-language", 
+        tabular_size="p{5cm} l p{11.5cm}", 
+        first_column_name="Data Format", 
+        save_location="RQ2/dataRepresentationFormatTable"
+    )
     
 # =======================
 # RQ 3 
@@ -137,6 +209,16 @@ class Analysis:
 
     def levelOfIntegrationTable(self):
         self.generate_summary_table("Level of Integration (Cleaned)", "Level of Integration in Studies", "rq3-lvl-integration", "p{3.5cm} l p{15cm}", "Integration LVL", "RQ3/levelOfIntegrationTable")
+        
+    def dtServicesTable(self):
+        self.generate_delimiter_table(
+        column="Services (Cleaned)", 
+        caption="DT Services Used in Papers", 
+        label="rq3-dt-services", 
+        tabular_size="p{5cm} l p{11.5cm}", 
+        first_column_name="Service", 
+        save_location="RQ3/dtServicesTable"
+        )
 
 
     

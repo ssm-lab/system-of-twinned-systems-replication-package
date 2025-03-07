@@ -150,9 +150,9 @@ class Analysis:
         framework_columns = {
             "Digital Twin & IoT": "DT/IoT", 
             "Modeling & Simulation": "Modeling/Sim", 
-            "AI, Data Analytics & Machine Learning": "Analytics", 
+            "AI, Data Analytics & Machine Learning": "Analytics & AI", 
             "Cloud, Edge, and DevOps": "CloudOps", 
-            "Systems Engineering & Architecture": "Sys Eng & Arch", 
+            "Systems Engineering & Architecture": "SysEng & Arch", 
             "Data Management": "Data Mgmt", 
             "Geospatial & Visualization Technologies": "Geo/Viz", 
             "Application Development & Web Technologies": "App/Web Dev"
@@ -273,9 +273,9 @@ class Analysis:
         framework_columns = {
             "Digital Twin & IoT": "DT/IoT", 
             "Modeling & Simulation": "Modeling/Sim", 
-            "AI, Data Analytics & Machine Learning": "Analytics", 
+            "AI, Data Analytics & Machine Learning": "Analytics & AI", 
             "Cloud, Edge, and DevOps": "CloudOps", 
-            "Systems Engineering & Architecture": "Sys Eng & Arch", 
+            "Systems Engineering & Architecture": "SysEng & Arch", 
             "Data Management": "Data Mgmt", 
             "Geospatial & Visualization Technologies": "Geo/Viz", 
             "Application Development & Web Technologies": "App/Web Dev"
