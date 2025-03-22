@@ -27,9 +27,11 @@ class Analysis:
         12: "EvaluationTable", #RQ5
         13: "standardsTable", #RQ5
         14: "contributionTypeTable", #RQ5
-        17: "dtServicesTable", #RQ3
-        20: "programmingLangaugesTables", #RQ2
-        19: "frameworksTables", #RQ3
+        15: "dtServicesTable", #RQ3
+        16: "programmingLangaugesTables", #RQ2
+        17: "frameworksTables", #RQ3
+        18: "dtOrSoSRelated", # RQ5
+        
     }
     
     
@@ -358,6 +360,10 @@ class Analysis:
         
         latex_table = self.generate_latex_table(summary_df, "Standards Used in Papers", "standards", "p{5cm} l p{11.5cm}", "Standard")
         self.saveLatex("RQ5/standards", latex_table)
+        
+    def dtOrSoSRelated(self):
+        self.generate_summary_table("Do The Studies Use Standards in More of an SoS or DT context", "Context of Standards used in Studies", "dtOrSoSRelated", "p{5cm} l p{12.5cm}", "Context", "RQ5/dtOrSoSRelated")
+        
 
         
         
