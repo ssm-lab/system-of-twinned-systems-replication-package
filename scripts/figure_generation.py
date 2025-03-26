@@ -1,13 +1,14 @@
 import argparse
 import os
-import re
-import warnings
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator, FuncFormatter
 import plotly.graph_objects as go
 import matplotlib.gridspec as gridspec
+from matplotlib import font_manager
+import matplotlib.patheffects as patheffects
+
 
 import pandas as pd
 import numpy as np
@@ -21,11 +22,10 @@ results_path = "./output/figures"
 class Analysis:
     observation_map = {
         1: "intentOfSoSDT", # RQ1
-        4: "frameworksBarCharts", #RQ2
-        5: "frameworksBarChartsSeperate", #RQ2
-        8: "sosDimensions", # RQ4
-        9: "sosTypeVsEmergence", #RQ4
-        11: "trlVsContributionType", #RQ5
+        2: "sosDimensions", # RQ4
+        3: "sosTypeVsEmergence", #RQ4
+        4: "trlVsContributionType", #RQ5
+        5: "topologyVsIntent", #RQ2
     }
     
     def __init__(self):
@@ -79,6 +79,8 @@ class Analysis:
 
         # Mirror the DT column for plotting (so that DT bars extend to the left)
         pivot_df["DT_mirrored"] = -pivot_df[dt_col]
+        
+        total_studies = pivot_df[[dt_col, sos_col]].sum().sum()
 
 
         fig = go.Figure()
@@ -90,6 +92,7 @@ class Analysis:
             orientation='h',
             marker_color='rgb(222,45,38)',
             text=[f"{pivot_df.loc[domain, dt_col]:.0f}" for domain in y_categories],
+            textfont=dict(size=21),
             textposition='inside',
             hovertemplate='Domain: %{y}<br>' + dt_col + ': %{text}<extra></extra>',
         ))
@@ -102,6 +105,7 @@ class Analysis:
             orientation='h',
             marker_color='rgb(49,130,189)',
             text=[f"{pivot_df.loc[domain, sos_col]:.0f}" for domain in y_categories],
+            textfont=dict(size=21),
             textposition='inside',
             hovertemplate='Domain: %{y}<br>' + sos_col + ': %{text}<extra></extra>',
         ))
@@ -110,19 +114,25 @@ class Analysis:
         max_count = max(pivot_df[dt_col].max(), pivot_df[sos_col].max())
 
         fig.update_layout(
-            title="Intent by Domain",
+            title=dict(
+                text="Intent by Domain",
+                x=0.5,  # centers the title horizontally
+                font=dict(color='black', size=28)
+            ),
             barmode='overlay',
             bargap=0.1,
             xaxis=dict(
                 tickvals=[-max_count, -max_count/2, 0, max_count/2, max_count],
                 ticktext=[str(int(max_count)), str(int(max_count/2)), "0", str(int(max_count/2)), str(int(max_count))],
-                title="# of Studies",
+                title=dict(text="# of Studies", font=dict(color='black', size=24)),
                 showgrid=True,
+                tickfont=dict(color='black', size=21),
             ),
             yaxis=dict(
-                title="Domain",
+                title=dict(text="Domain", font=dict(color='black', size=24)),
                 automargin=True,
                 showgrid=True,
+                tickfont=dict(color='black', size=21),
             ),
             width=1400,
             height=900,
@@ -131,7 +141,7 @@ class Analysis:
             legend=dict(
                 x=0.65, 
                 y=1,
-                font=dict(size=18), 
+                font=dict(size=21, color='black'), 
                 bgcolor="white", 
             )
         )
@@ -143,219 +153,6 @@ class Analysis:
 # RQ 2
 # =======================
         
-    def frameworksBarCharts(self, threshold=1):
-        df = self.df.copy()
-        df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
-        
-        framework_columns = {
-            "Digital Twin & IoT": "DT/IoT", 
-            "Modeling & Simulation": "Modeling/Sim", 
-            "AI, Data Analytics & Machine Learning": "Analytics & AI", 
-            "Cloud, Edge, and DevOps": "CloudOps", 
-            "Systems Engineering & Architecture": "SysEng & Arch", 
-            "Data Management": "Data Mgmt", 
-            "Geospatial & Visualization Technologies": "Geo/Viz", 
-            "Application Development & Web Technologies": "App/Web Dev"
-        }
-        
-        data_list = []
-        
-        for full_col, short_label in framework_columns.items():
-            # Extract individual frameworks.
-            rows = []
-            for _, row in df.iterrows():
-                cell = row[full_col]
-                if pd.isna(cell):
-                    continue
-                frameworks_list = [fw.strip() for fw in str(cell).split(",") if fw.strip()]
-                for fw in frameworks_list:
-                    rows.append({
-                        "Framework": fw,
-                        "Paper ID": row["Paper ID"]
-                    })
-            
-            if not rows:
-                continue
-            
-            exploded_df = pd.DataFrame(rows)
-            
-            # Group by framework to count the number of unique papers.
-            summary_df = exploded_df.groupby("Framework").agg(
-                Paper_Count=("Paper ID", "nunique")
-            ).reset_index()
-            
-            # Group frameworks that appear in <= threshold papers into "Other"
-            mask = summary_df["Paper_Count"] <= threshold
-            other_count = summary_df.loc[mask, "Paper_Count"].sum()
-            other_row = None
-
-            # If all categories would be grouped as "Other", don't group
-            if mask.sum() == len(summary_df):  # Everything falls into "Other"
-                pass  # Leave summary_df as is
-            else:
-                if mask.sum() > 0:
-                    other_row = pd.DataFrame([{"Framework": "Other", "Paper_Count": other_count}])
-                    summary_df = summary_df[~mask]
-
-            # Sort the remaining frameworks by Paper_Count (ascending)
-            summary_df = summary_df.sort_values(by="Paper_Count", ascending=True)
-
-            # If "Other" exists, add it at the bottom
-            if other_row is not None:
-                summary_df = pd.concat([summary_df, other_row], ignore_index=True)
-
-            # Ensure "Other" always appears at the bottom
-            if "Other" in summary_df["Framework"].values:
-                summary_df = summary_df.sort_values(by=["Framework"], key=lambda x: x != "Other")
-
-            
-            # Calculate percentages.
-            total_papers = df["Paper ID"].nunique()  # Get total unique papers
-            summary_df["Percentage"] = (summary_df["Paper_Count"] / total_papers) * 100
-            
-            # Save the processed data.
-            data_list.append((full_col, short_label, summary_df, len(summary_df)))
-        
-        # If no valid data, exit.
-        if not data_list:
-            print("No data found for any framework categories.")
-            return
-        
-        # Compute total height for the figure.
-        total_relative_height = sum([n for (_, _, _, n) in data_list])
-        total_height = 0.33 * total_relative_height + 2  # Add extra margin
-        
-        # Create a figure with subplots arranged vertically.
-        n_subplots = len(data_list)
-        height_ratios = [n for (_, _, _, n) in data_list]
-        
-        fig = plt.figure(figsize=(8,  max(total_height, 4)))
-        gs = gridspec.GridSpec(n_subplots, 1, height_ratios=height_ratios, hspace=0.6)
-        
-        # Loop through each category and plot in its respective subplot.
-        for i, (full_col, short_label, summary_df, n_rows) in enumerate(data_list):
-            ax = fig.add_subplot(gs[i])
-            indexes = np.arange(len(summary_df))
-            ax.barh(indexes, summary_df["Percentage"], color="#85d4ff")
-            ax.set_xlim(0, 100)
-            
-            # Create labels like: "Framework (Count) — Percentage%"
-            labels = [
-                f"{row['Framework']} ({row['Paper_Count']}) — {row['Percentage']:.1f}%"
-                for _, row in summary_df.iterrows()
-            ]
-            ax.set_yticks(indexes)
-            ax.set_yticklabels(labels, ha="left")
-            
-            # Remove plot borders and x-axis ticks/labels.
-            ax.spines["right"].set_visible(False)
-            ax.spines["top"].set_visible(False)
-            ax.spines["bottom"].set_visible(False)
-            ax.tick_params(axis="x", which="both", bottom=False, top=False, labelbottom=False)
-            ax.tick_params(axis="y", direction="out", pad=-10)
-            ax.yaxis.set_ticks_position("none")
-            
-            # Use the short label as the rotated y-axis title.
-            ax.set_ylabel(short_label, rotation=90, fontsize=12, labelpad=7)
-            
-            # Adjust font sizes.
-            for label in ax.get_yticklabels() + ax.get_xticklabels():
-                label.set_fontsize(13)
-        
-        plt.tight_layout()
-        self.savefig("frameworksBarCharts", upper_folder="RQ2")
-        
-        
-    def frameworksBarChartsSeperate(self, threshold=1):
-        df = self.df.copy()
-        df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
-
-        framework_columns = {
-            "Digital Twin & IoT": "DT/IoT", 
-            "Modeling & Simulation": "Modeling/Sim", 
-            "AI, Data Analytics & Machine Learning": "Analytics & AI", 
-            "Cloud, Edge, and DevOps": "CloudOps", 
-            "Systems Engineering & Architecture": "SysEng & Arch", 
-            "Data Management": "Data Mgmt", 
-            "Geospatial & Visualization Technologies": "Geo/Viz", 
-            "Application Development & Web Technologies": "App/Web Dev"
-        }
-
-        for full_col, short_label in framework_columns.items():
-            rows = []
-            for _, row in df.iterrows():
-                cell = row[full_col]
-                if pd.isna(cell):
-                    continue
-                frameworks_list = [fw.strip() for fw in str(cell).split(",") if fw.strip()]
-                for fw in frameworks_list:
-                    rows.append({
-                        "Framework": fw,
-                        "Paper ID": row["Paper ID"]
-                    })
-
-            if not rows:
-                continue  # Skip empty categories
-
-            exploded_df = pd.DataFrame(rows)
-
-            # Count occurrences per framework
-            summary_df = exploded_df.groupby("Framework").agg(
-                Paper_Count=("Paper ID", "nunique")
-            ).reset_index()
-
-            # Group low-frequency frameworks into "Other"
-            mask = summary_df["Paper_Count"] <= threshold
-            other_count = summary_df.loc[mask, "Paper_Count"].sum()
-
-            if mask.sum() == len(summary_df):  # If everything falls into "Other", keep all instead
-                pass
-            else:
-                if mask.sum() > 0:
-                    other_row = pd.DataFrame([{"Framework": "Other", "Paper_Count": other_count}])
-                    summary_df = summary_df[~mask]
-                    summary_df = pd.concat([summary_df, other_row], ignore_index=True)
-
-            # Sort frameworks (ascending), ensuring "Other" is always last
-            summary_df = summary_df.sort_values(by="Paper_Count", ascending=True)
-            if "Other" in summary_df["Framework"].values:
-                summary_df = summary_df.sort_values(by=["Framework"], key=lambda x: x != "Other")
-
-            # Calculate percentages based on total unique papers
-            total_papers = df["Paper ID"].nunique()
-            summary_df["Percentage"] = (summary_df["Paper_Count"] / total_papers) * 100
-
-
-            indexes = np.arange(len(summary_df))
-            # Create a horizontal bar chart
-            fig, ax = plt.subplots(figsize=(8, 0.33 * max(len(summary_df), 4))) # no cut off for y axis title
-            ax.barh(indexes, summary_df["Percentage"], color="#85d4ff")
-            ax.set_xlim(0, 100)  # Ensure consistent scaling
-
-            # Labels like: "Framework (Count) — Percentage%"
-            labels = [
-                f"{row['Framework']} ({row['Paper_Count']}) — {row['Percentage']:.1f}%"
-                for _, row in summary_df.iterrows()
-            ]
-            ax.set_yticks(indexes)
-            ax.set_yticklabels(labels, ha="left")
-
-            # Formatting
-            ax.spines["right"].set_visible(False)
-            ax.spines["top"].set_visible(False)
-            ax.spines["bottom"].set_visible(False)
-            ax.tick_params(axis="x", which="both", bottom=False, top=False, labelbottom=False)
-            ax.tick_params(axis="y", direction="out", pad=-10)
-            ax.yaxis.set_ticks_position("none")
-            ax.set_ylabel(short_label, rotation=90, fontsize=12, labelpad=7)
-
-            # Adjust font sizes
-            for label in ax.get_yticklabels() + ax.get_xticklabels():
-                label.set_fontsize(13)
-
-            self.savefig(f"frameworksBarCharts_{short_label}", upper_folder="RQ2")
-            plt.close(fig)
-
 
 # =======================
 # RQ 3 
@@ -370,83 +167,83 @@ class Analysis:
         sos_dimensions = [col for col in df.columns if isinstance(col, str) and col.startswith("SoS:")]
         
         likert_options = ["No", "Partial", "Yes"]
-        
-        counts = {}
-        for col in sos_dimensions:
-            counts[col] = df[col].value_counts().reindex(likert_options, fill_value=0)
-        counts_df = pd.DataFrame(counts).T  # rows: dimensions, columns: responses
+        counts = {col: df[col].value_counts().reindex(likert_options, fill_value=0) for col in sos_dimensions}
+        counts_df = pd.DataFrame(counts).T
         
         total_responses = df.shape[0]
         percentages = counts_df.div(total_responses) * 100
         percentages.index = [col.replace("SoS: ", "") for col in percentages.index]
-
+        # Rename specific labels
+        rename_map = {
+            "Dynamic Reconfiguration": "Reconfiguration",
+            "Autonomy of Constituents": "Autonomy",
+            "Emergence of Behaviour": "Emergence"  # Spelling from your earlier plot
+        }
+        percentages.rename(index=rename_map, inplace=True)
+        
         no_vals = percentages["No"]
         partial_vals = percentages["Partial"]
         yes_vals = percentages["Yes"]
 
-        # Compute left starting positions:
         left_no = -no_vals - (partial_vals / 2)
         left_partial = -partial_vals / 2
         left_yes = partial_vals / 2
 
-        # Increase overall figure size further
         fig, ax = plt.subplots(figsize=(30, len(percentages) * 1.5))
+        plt.subplots_adjust(left=0.25, right=0.95) 
         y_pos = np.arange(len(percentages))
         
-        ax.barh(y_pos, no_vals, left=left_no, color="#3182bd", label="No")
-        ax.barh(y_pos, partial_vals, left=left_partial, color="#b5bbc3", label="Partial")
-        ax.barh(y_pos, yes_vals, left=left_yes, color="#de2d26", label="Yes")
+        ax.barh(y_pos, no_vals, left=left_no, color="#d62728", label="No")
+        ax.barh(y_pos, partial_vals, left=left_partial, color="#f0ad4e", label="Partial")
+        ax.barh(y_pos, yes_vals, left=left_yes, color="#2ca02c", label="Yes")
+
+        # ax.set_facecolor("#f5f5f5")
+        ax.set_facecolor("#ffffff")
+        ax.grid(axis="x", linestyle="--", linewidth=0.5, color="gray", alpha=0.6)
 
         ax.set_yticks(y_pos)
-        ax.set_yticklabels(percentages.index, fontsize=16)
-        ax.set_xlabel("Percentage", fontsize=18)
-        ax.set_title("SoS Dimensions",  fontsize=25)
-        
-        ax.tick_params(axis='x', labelsize=18)
-        ax.tick_params(axis='y', labelsize=25)
+        # ax.set_yticklabels(percentages.index, fontsize=40)
+        # ax.tick_params(axis='y', labelsize=40, pad=20) 
+        font_prop = font_manager.FontProperties(size=32)
+        ax.set_yticklabels(percentages.index, fontproperties=font_prop)
+        ax.tick_params(axis='y', pad=30)
+        ax.set_xlabel("Percentage", fontsize=28)
+        ax.set_title("SoS Dimensions", fontsize=36)
 
-        # Add a vertical line at x=0 and legend
-        ax.axvline(0, color='black', linewidth=0.2)
+        ax.tick_params(axis='x', labelsize=28)
 
-        # Increase x-axis limits to provide more space for labels
-        left_lim = left_no.min() - 2
-        right_lim = (left_yes + yes_vals).max() + 2
+        ax.axvline(0, color='black', linewidth=0.5, linestyle=':')
+
+        left_lim = left_no.min() - 1.5
+        right_lim = (left_yes + yes_vals).max() + 1.5
         ax.set_xlim(left_lim, right_lim)
 
-        # Use a MultipleLocator for larger spacing between x ticks (every 10 units)
-        ax.xaxis.set_major_locator(MultipleLocator(5))
-        ax.xaxis.set_major_formatter(FuncFormatter(lambda x, pos: f"{abs(x):.0f}"))
-        
-        # Define a threshold below which labels will be repositioned (in percentage points)
+        ax.xaxis.set_major_locator(MultipleLocator(10))
+        ax.xaxis.set_major_formatter(FuncFormatter(lambda x, pos: f"{abs(x):.0f}%"))
+
         min_width = 5
+        for i in range(len(percentages.index)):
+            if no_vals.iloc[i] > 0:
+                xpos = left_no.iloc[i] + no_vals.iloc[i] / 2
+                ha = 'center' if no_vals.iloc[i] >= min_width else 'right'
+                ax.text(xpos if no_vals.iloc[i] >= min_width else left_no.iloc[i] - 1, i,
+                        f"{no_vals.iloc[i]:.2f}%", va='center', ha=ha,
+                        color='white', fontsize=21, fontweight="bold", path_effects=[patheffects.withStroke(linewidth=1, foreground='black')])
 
-        # Add text labels within or near each bar segment with additional offsets for tiny segments
-        for i, dim in enumerate(percentages.index):
-            # "No" category: if tiny, position to the left of the bar
-            if no_vals[i] > 0:
-                if no_vals[i] < min_width:
-                    ax.text(left_no[i] - 1, i, f"{no_vals[i]:.2f}%", va='center', ha='right',
-                            color='white', fontsize=18, fontweight="bold")
-                else:
-                    ax.text(left_no[i] + no_vals[i] / 2, i, f"{no_vals[i]:.2f}%",
-                            va='center', ha='center', color='white', fontsize=18, fontweight="bold")
-            # "Partial" category: always centered at x=0; if tiny, nudge vertically
-            if partial_vals[i] > 0:
-                if partial_vals[i] < min_width:
-                    ax.text(0, i - 0.3, f"{partial_vals[i]:.2f}%", va='bottom', ha='center',
-                            color='white', fontsize=18, fontweight="bold")
-                else:
-                    ax.text(0, i, f"{partial_vals[i]:.2f}%", va='center', ha='center',
-                            color='white', fontsize=18, fontweight="bold")
-            # "Yes" category: if tiny, position to the right of the bar
-            if yes_vals[i] > 0:
-                if yes_vals[i] < min_width:
-                    ax.text(left_yes[i] + yes_vals[i] / 2 + 1, i, f"{yes_vals[i]:.2f}%",
-                            va='center', ha='left', color='white', fontsize=18, fontweight="bold")
-                else:
-                    ax.text(left_yes[i] + yes_vals[i] / 2, i, f"{yes_vals[i]:.2f}%",
-                            va='center', ha='center', color='white', fontsize=18, fontweight="bold")
+            if partial_vals.iloc[i] > 0:
+                ax.text(0, i - 0.3 if partial_vals.iloc[i] < min_width else i,
+                        f"{partial_vals.iloc[i]:.2f}%", va='center',
+                        ha='center', color='white', fontsize=21, fontweight="bold", path_effects=[patheffects.withStroke(linewidth=1, foreground='black')])
 
+            if yes_vals.iloc[i] > 0:
+                xpos = left_yes.iloc[i] + yes_vals.iloc[i] / 2
+                ha = 'center' if yes_vals.iloc[i] >= min_width else 'left'
+                ax.text(xpos if yes_vals.iloc[i] >= min_width else xpos + 1, i,
+                        f"{yes_vals.iloc[i]:.2f}%", va='center', ha=ha,
+                        color='white', fontsize=21, fontweight="bold", path_effects=[patheffects.withStroke(linewidth=1, foreground='black')])
+
+
+        ax.legend(fontsize=18, loc="lower right")
         self.savefig("sosDimensions", upper_folder="RQ4")
 
         
@@ -582,6 +379,8 @@ class Analysis:
         # Save the figure
         self.savefig("trlVsContributionType", upper_folder="RQ5")
              
+                           
+                           
                            
 # =======================
 # Saving and Running Script 

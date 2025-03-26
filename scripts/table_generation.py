@@ -31,6 +31,7 @@ class Analysis:
         16: "programmingLangaugesTables", #RQ2
         17: "frameworksTables", #RQ3
         18: "dtOrSoSRelated", # RQ5
+        19: "generate_validation_evaluation_table", #RQ5
         
     }
     
@@ -317,6 +318,86 @@ class Analysis:
 
     def EvaluationTable(self):
         self.generate_summary_table("Evaluation", "Evaluation in Studies", "rq5-evaluation", "p{2.5cm} l p{14cm}", "Evaluation", "RQ5/EvaluationTable")
+        
+    VALIDATION_CATEGORIES = {
+    "simulation as an empirical method",
+    "laboratory experiments",
+    "prototyping",
+    "mathematical analysis and proof of properties",
+    "academic case study"
+    }
+
+    EVALUATION_CATEGORIES = {
+        "industrial case study",
+        "controlled experiment with practitioners",
+        "action research",
+        "ethnography"
+    }
+    
+    def generate_validation_evaluation_table(self, category_type="validation", save_location="RQ5/validation_evaluation"):
+        column_name = "Eval/Val Expanded"
+        VALIDATION_CATEGORIES = {
+            "simulation as an empirical method",
+            "laboratory experiments",
+            "prototyping",
+            "mathematical analysis and proof of properties",
+            "academic case study",
+            "Other - Architectural Design / Conceptual Modeling"
+        }
+
+        EVALUATION_CATEGORIES = {
+            "industrial case study",
+            "controlled experiment with practitioners",
+            "action research",
+            "ethnography"
+        }
+        
+        for category_type in ["validation", "evaluation"]:
+
+            # Select category set
+            if category_type.lower() == "validation":
+                selected_set = VALIDATION_CATEGORIES
+                caption = "Validation Research Methods in Studies"
+                label = "rq5-validation"
+                first_column_name = "Validation Method"
+            elif category_type.lower() == "evaluation":
+                selected_set = EVALUATION_CATEGORIES
+                caption = "Evaluation Research Methods in Studies"
+                label = "rq5-evaluation"
+                first_column_name = "Evaluation Method"
+            else:
+                raise ValueError("category_type must be either 'validation' or 'evaluation'")
+
+            df = self.df.copy()
+            citation_col = "Citation Code"
+
+            rows = []
+            for _, row in df.iterrows():
+                methods = str(row[column_name]).lower().split(",") if pd.notna(row[column_name]) else []
+                for method in methods:
+                    method_clean = method.strip()
+                    if method_clean in selected_set:
+                        rows.append({
+                            "Method": method_clean.title(),
+                            "Paper ID": row["Paper ID"],
+                            "Citation Code": row[citation_col] if citation_col in row else None
+                        })
+
+            if not rows:
+                print(f"No matching {category_type} methods found.")
+                return
+
+            exploded_df = pd.DataFrame(rows)
+
+            summary_df = exploded_df.groupby("Method").agg(
+                Paper_Count=("Paper ID", "nunique"),
+                Citations=("Citation Code", lambda x: ", ".join([f"\\citepPS{{{cite}}}" for cite in x.dropna().unique()]) if not x.dropna().empty else "\\citepPS{{placeholder}}")
+            ).reset_index().sort_values(by="Paper_Count", ascending=False)
+
+            latex_table = self.generate_latex_table(summary_df, caption, label, "p{5cm} l p{11.5cm}", first_column_name)
+            self.saveLatex(f"{save_location}_{category_type}", latex_table)
+
+
         
     def contributionTypeTable(self):
         self.generate_summary_table("Contribution type", "Contribution Type in Studies", "rq5-contribution-type", "p{5cm} l p{12.5cm}", "Contribution Type", "RQ5/contributionTypeTable")
