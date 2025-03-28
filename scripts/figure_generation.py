@@ -9,10 +9,12 @@ import matplotlib.gridspec as gridspec
 from matplotlib import font_manager
 import matplotlib.patheffects as patheffects
 
+import plotly.graph_objects as go
+import pandas as pd
+import numpy as np
 
 import pandas as pd
 import numpy as np
-import seaborn as sns
 import matplotlib.pyplot as plt
 
 pd.set_option('future.no_silent_downcasting', True)
@@ -23,9 +25,7 @@ class Analysis:
     observation_map = {
         1: "intentOfSoSDT", # RQ1
         2: "sosDimensions", # RQ4
-        3: "sosTypeVsEmergence", #RQ4
-        4: "trlVsContributionType", #RQ5
-        5: "topologyVsIntent", #RQ2
+        3: "trlVsContributionType", #RQ5
     }
     
     def __init__(self):
@@ -79,9 +79,6 @@ class Analysis:
 
         # Mirror the DT column for plotting (so that DT bars extend to the left)
         pivot_df["DT_mirrored"] = -pivot_df[dt_col]
-        
-        total_studies = pivot_df[[dt_col, sos_col]].sum().sum()
-
 
         fig = go.Figure()
         # Trace for DT (mirrored to the left)
@@ -90,9 +87,10 @@ class Analysis:
             x=[pivot_df.loc[domain, "DT_mirrored"] for domain in y_categories],
             name=dt_col,
             orientation='h',
-            marker_color='rgb(222,45,38)',
+            # marker_color='rgb(222,45,38)',
+            marker_color="#f05a50",
             text=[f"{pivot_df.loc[domain, dt_col]:.0f}" for domain in y_categories],
-            textfont=dict(size=21),
+            textfont=dict(size=21, color="black"),
             textposition='inside',
             hovertemplate='Domain: %{y}<br>' + dt_col + ': %{text}<extra></extra>',
         ))
@@ -103,9 +101,10 @@ class Analysis:
             x=[pivot_df.loc[domain, sos_col] for domain in y_categories],
             name=sos_col,
             orientation='h',
-            marker_color='rgb(49,130,189)',
+            # marker_color='rgb(49,130,189)',
+            marker_color="#85d4ff",
             text=[f"{pivot_df.loc[domain, sos_col]:.0f}" for domain in y_categories],
-            textfont=dict(size=21),
+            textfont=dict(size=21, color="black"),
             textposition='inside',
             hovertemplate='Domain: %{y}<br>' + sos_col + ': %{text}<extra></extra>',
         ))
@@ -193,9 +192,9 @@ class Analysis:
         plt.subplots_adjust(left=0.25, right=0.95) 
         y_pos = np.arange(len(percentages))
         
-        ax.barh(y_pos, no_vals, left=left_no, color="#d62728", label="No")
-        ax.barh(y_pos, partial_vals, left=left_partial, color="#f0ad4e", label="Partial")
-        ax.barh(y_pos, yes_vals, left=left_yes, color="#2ca02c", label="Yes")
+        ax.barh(y_pos, no_vals, left=left_no, color="#f05a50", label="No")
+        ax.barh(y_pos, partial_vals, left=left_partial, color="#f6a94d", label="Partial")
+        ax.barh(y_pos, yes_vals, left=left_yes, color="#5bab61", label="Yes")
 
         # ax.set_facecolor("#f5f5f5")
         ax.set_facecolor("#ffffff")
@@ -228,160 +227,91 @@ class Analysis:
                 ha = 'center' if no_vals.iloc[i] >= min_width else 'right'
                 ax.text(xpos if no_vals.iloc[i] >= min_width else left_no.iloc[i] - 1, i,
                         f"{no_vals.iloc[i]:.2f}%", va='center', ha=ha,
-                        color='white', fontsize=21, fontweight="bold", path_effects=[patheffects.withStroke(linewidth=1, foreground='black')])
+                        color='black', fontsize=24, weight=550)
 
             if partial_vals.iloc[i] > 0:
                 ax.text(0, i - 0.3 if partial_vals.iloc[i] < min_width else i,
                         f"{partial_vals.iloc[i]:.2f}%", va='center',
-                        ha='center', color='white', fontsize=21, fontweight="bold", path_effects=[patheffects.withStroke(linewidth=1, foreground='black')])
+                        ha='center', color='black', fontsize=24, weight=550)
 
             if yes_vals.iloc[i] > 0:
                 xpos = left_yes.iloc[i] + yes_vals.iloc[i] / 2
                 ha = 'center' if yes_vals.iloc[i] >= min_width else 'left'
                 ax.text(xpos if yes_vals.iloc[i] >= min_width else xpos + 1, i,
                         f"{yes_vals.iloc[i]:.2f}%", va='center', ha=ha,
-                        color='white', fontsize=21, fontweight="bold", path_effects=[patheffects.withStroke(linewidth=1, foreground='black')])
+                        color='black', fontsize=24, weight=550)
 
 
         ax.legend(fontsize=18, loc="lower right")
         self.savefig("sosDimensions", upper_folder="RQ4")
-
-        
-    def sosTypeVsEmergence(self):
-        df = self.df.copy()
-        df = df.rename(columns={"Type of SoS": "SoS Type", "Emergence": "Emergence"})
-        df["Paper ID"] = ["T{:02d}".format(i + 1) for i in range(len(df))]
-
-
-        sos_vs_emergent = df.groupby(["SoS Type", "Emergence"]).size().unstack().fillna(0)
-
-        # Sort SoS Types by total count
-        sos_vs_emergent["Total"] = sos_vs_emergent.sum(axis=1)
-        sos_vs_emergent = sos_vs_emergent.sort_values(by="Total", ascending=True)
-        sos_vs_emergent = sos_vs_emergent.drop(columns=["Total"]) 
-
-        sos_types = sos_vs_emergent.index.tolist()
-        emergence_types = sos_vs_emergent.columns.tolist()
-
-        colors = ["#FFD166", "#83bd63", "#ff9a26", "#ff4646"]
-
-        # Bar width and spacing
-        num_emergence = len(emergence_types)
-        bar_height = 0.7 / num_emergence  # Smaller bars within each SoS Type
-        y_positions = np.arange(len(sos_types))  # Main y-axis positions
-
-        fig, ax = plt.subplots(figsize=(10, 7))
-
-        # Plot bars for each emergence type within each SoS type
-        for i, (emergence, color) in enumerate(zip(emergence_types, colors)):
-            counts = sos_vs_emergent[emergence].values
-
-            # Offset bars within each SoS Type
-            bars = ax.barh(y_positions - (i - num_emergence / 2) * bar_height, counts, bar_height, label=emergence, color=color, alpha=0.9)
-
-            # Add text labels inside bars (Aligned to Start of Bar)
-            for bar, count in zip(bars, counts):
-                if count > 0:  # Only label non-zero values
-                    ax.text(bar.get_x() + 0.1,  # Small offset to the right
-                            bar.get_y() + bar.get_height() / 2,  
-                            f"{emergence} ({int(count)})", 
-                            ha="left", va="center", fontsize=18, color="black")
-
-        # Format labels
-        sos_labels = [
-            f"{sos} ({int(sos_vs_emergent.loc[sos].sum())})"
-            for sos in sos_types
-        ]
-        ax.set_yticks(y_positions)
-        ax.set_yticklabels(sos_labels, fontsize=18, ha="right")
-
-        ax.spines["right"].set_visible(False)
-        ax.spines["top"].set_visible(False)
-        ax.spines["bottom"].set_visible(False)
-
-        ax.set_xlabel("Count", fontsize=18)
-        ax.set_ylabel("SoS Type", fontsize=18, labelpad=10)
-        ax.set_title("SoS Type vs. Emergent Behavior", fontsize=16, pad=15)
-        ax.legend(fontsize=16)
-
-        # Remove x axis 
-        ax.set_xticks([])
-        ax.set_xticklabels([])
-        ax.set_xlabel("")  # Remove X-axis label
-
-        self.savefig("sosTypeVsEmergence", upper_folder="RQ4")
             
             
 # =======================
 # RQ 5 
 # =======================
-                
     def trlVsContributionType(self):
         df = self.df.copy()
-
-        trl_order = ["Initial", "Proof-of-Concept", "Demo prototype", "Deployed prototype", "Operational"]
+        trl_order = [
+            "Initial",
+            "Proof-Of-Concept",
+            "Demo Prototype",
+            "Deployed Prototype",
+            "Operational"
+        ]
+        df["TRL"] = df["TRL"].str.title()
         df["TRL"] = pd.Categorical(df["TRL"], categories=trl_order, ordered=True)
 
-        trl_contribution_counts = df.groupby(["TRL", "Contribution type"]).size().reset_index(name="Count")
+        df_unique = df.drop_duplicates(subset=["Citation Code", "TRL", "Contribution type"])
+        grouped = df_unique.groupby(["TRL", "Contribution type"], observed=True)["Citation Code"].nunique().reset_index(name="Count")
 
-        pivot_df = trl_contribution_counts.pivot(index="TRL", columns="Contribution type", values="Count").fillna(0)
+        pivot_df = grouped.pivot(index="TRL", columns="Contribution type", values="Count").fillna(0).astype(int)
+        pivot_df = pivot_df.reindex(trl_order)
 
-        pivot_df = pivot_df.reindex(trl_order[::-1])  # Reverse order to put Initial at the top
+        contribution_types = ["Conceptual", "Technical", "Case study"]
+        colors = {
+            "Conceptual": "#85d4ff",
+            "Technical": "#f05a50",
+            "Case study": "#5bab61"
+        }
 
-        trl_types = pivot_df.index.tolist()
-        contribution_types = pivot_df.columns.tolist()
+        x = np.arange(len(pivot_df))
+        width = 0.27
 
-        colors = ["#3182bd", "#b5bbc3", "#de2d26"]
+        fig, ax = plt.subplots(figsize=(12, 6))
+        total_studies = df["Citation Code"].nunique()
 
-        num_contributions = len(contribution_types)
-        bar_height = 0.7 / num_contributions 
-        y_positions = np.arange(len(trl_types))
-        fig, ax = plt.subplots(figsize=(10, 7))
+        for i, contrib in enumerate(contribution_types):
+            values = pivot_df[contrib] if contrib in pivot_df else [0]*len(pivot_df)
+            bars = ax.bar(x + (i - 1) * width, values, width, label=contrib, color=colors[contrib])
 
-        # Plot bars for each Contribution Type within each TRL
-        for i, (contribution, color) in enumerate(zip(contribution_types, colors)):
-            counts = pivot_df[contribution].values
+            for bar in bars:
+                height = bar.get_height()
+                if height > 0:
+                    percent = (height / total_studies) * 100
+                    offset = 5
+                    label = f"{int(height)} ({percent:.0f}%)"
+                    ax.annotate(
+                                label,
+                                xy=(bar.get_x() + bar.get_width() / 2, height),
+                                xytext=(0, offset),
+                                textcoords="offset points",
+                                ha='center', va='bottom',
+                                fontsize=10.5, fontweight='medium')
 
-            # Offset bars within each TRL Type
-            bars = ax.barh(y_positions - (i - num_contributions / 2) * bar_height, counts, bar_height, 
-                        label=contribution, color=color, alpha=0.9)
+        ax.set_ylabel("Number of Papers", fontsize=14)
+        ax.set_xticks(x)
+        ax.set_xticklabels(trl_order, rotation=15, fontsize=14)
+        ax.set_title("Contribution Types by TRL Level", fontsize=16, pad=15)
+        ax.legend(title="Contribution Type", fontsize=12, title_fontsize=13)
+        ax.set_ylim(0, pivot_df.values.max() + 10) 
+        ax.grid(axis='y', linestyle='--', alpha=0.5)
 
-            # Add text labels inside bars (Aligned to Start of Bar)
-            for bar, count in zip(bars, counts):
-                if count > 0:  # Only label non-zero values
-                    ax.text(bar.get_x() + 0.1,  # Small offset to the right
-                            bar.get_y() + bar.get_height() / 2,  
-                            f"{contribution} ({int(count)})", 
-                            ha="left", va="center", fontsize=18, color="black")
-
-        # Format labels (Ensure Initial is at the top)
-        trl_labels = [
-            f"{trl} ({int(pivot_df.loc[trl].sum())})"
-            for trl in trl_types
-        ]
-        ax.set_yticks(y_positions)
-        ax.set_yticklabels(trl_labels, fontsize=18, ha="right")
-
-        ax.spines["right"].set_visible(False)
-        ax.spines["top"].set_visible(False)
-        ax.spines["bottom"].set_visible(False)
-
-        # Remove x-axis labels and ticks
-        ax.set_xticks([])
-        ax.set_xticklabels([])
-        ax.set_xlabel("")  
-
-        # Set title and labels
-        ax.set_ylabel("TRL Level", fontsize=18, labelpad=10)
-        ax.set_title("TRL Levels vs. Contribution Types", fontsize=20, pad=15)
-        ax.legend(fontsize=16)
-
-        # Save the figure
+        plt.tight_layout()
         self.savefig("trlVsContributionType", upper_folder="RQ5")
-             
-                           
-                           
-                           
+
+
+
+               
 # =======================
 # Saving and Running Script 
 # =======================

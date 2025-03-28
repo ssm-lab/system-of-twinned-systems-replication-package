@@ -32,9 +32,9 @@ class Analysis:
         17: "frameworksTables", #RQ3
         18: "dtOrSoSRelated", # RQ5
         19: "generate_validation_evaluation_table", #RQ5
-        
+        20: "securityTable", 
+        21: "reliabilityTable",
     }
-    
     
     def __init__(self):
         if not os.path.exists(results_path):
@@ -92,12 +92,19 @@ class Analysis:
             return latex_table
         
     # For simple tables with one item per row  
-    def generate_summary_table(self, column, caption, label, tabular_size, first_column_name, save_location):
+    def generate_summary_table(self, column, caption, label, tabular_size, first_column_name, save_location, custom_order=None):
         df = self.df.copy()
         summary_df = df.groupby(column).agg(
             Paper_Count=("Paper ID", "count"),
             Citations=("Citation Code", lambda x: ", ".join(f"\\citepPS{{{cite}}}" for cite in x.dropna().unique()) if x.dropna().any() else "\\citepPS{placeholder}")
-        ).reset_index().sort_values(by="Paper_Count", ascending=False)
+        ).reset_index()
+        
+        if custom_order:
+            summary_df[column] = pd.Categorical(summary_df[column], categories=custom_order, ordered=True)
+            summary_df = summary_df.sort_values(by=column)
+
+        else:
+            summary_df = summary_df.sort_values(by="Paper_Count", ascending=False)
 
         latex_table = self.generate_latex_table(summary_df, caption, label, tabular_size, first_column_name)
         self.saveLatex(f"{save_location}", latex_table)
@@ -439,15 +446,37 @@ class Analysis:
                 }])
             ], ignore_index=True)
         
-        latex_table = self.generate_latex_table(summary_df, "Standards Used in Papers", "standards", "p{5cm} l p{11.5cm}", "Standard")
+        latex_table = self.generate_latex_table(summary_df, "Standards Used in Studies", "standards", "p{5cm} l p{11.5cm}", "Standard")
         self.saveLatex("RQ5/standards", latex_table)
         
     def dtOrSoSRelated(self):
         self.generate_summary_table("Do The Studies Use Standards in More of an SoS or DT context", "Context of Standards used in Studies", "dtOrSoSRelated", "p{5cm} l p{12.5cm}", "Context", "RQ5/dtOrSoSRelated")
         
 
+    
+# =======================
+# RQ 7
+# =======================
+    def securityTable(self):
+        custom_order = [
+            "Not Mentioned",
+            "Mentioned",
+            "Architecturally Addressed",
+            "Explicitly Modelled",
+            "Evaluated or Validated"
+        ]
+        self.generate_summary_table("Security/Confidentiality Level", "Security in Studies", "security", "p{5cm} l p{12.5cm}", "Context", "RQ7/securityTable", custom_order)
         
-        
+    def reliabilityTable(self):
+        custom_order = [
+            "Not Mentioned",
+            "Mentioned",
+            "Architecturally Addressed",
+            "Explicitly Modelled",
+            "Evaluated or Validated"
+        ]
+        self.generate_summary_table("Reliability Level", "Reliability in Studies", "reliability", "p{5cm} l p{12.5cm}", "Context", "RQ7/reliabilityTable", custom_order)
+
                      
 # =======================
 # Saving and Running Script 
