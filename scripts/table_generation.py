@@ -17,23 +17,22 @@ class Analysis:
         2: "intentsTable", #RQ1
         3: "domainsTable", #RQ1
         4: "topologyExtractionTable", #RQ2
+        22: "spatialDistributionTable", #RQ2
         5: "coordinationExtractionTable", #RQ2
         6: "constituentUnitsTable", #RQ2
         7: "autonomyTable", #RQ3
-        8: "levelOfIntegrationTable", #RQ3
         9: "emergenceTable", #RQ4
         10: "sosTypeTable", #RQ4
         11: "trlTable", #RQ5
-        12: "EvaluationTable", #RQ5
         13: "standardsTable", #RQ5
         14: "contributionTypeTable", #RQ5
         15: "dtServicesTable", #RQ3
         16: "programmingLangaugesTables", #RQ2
         17: "frameworksTables", #RQ3
         18: "dtOrSoSRelated", # RQ5
-        19: "generate_validation_evaluation_table", #RQ5
         20: "securityTable", 
         21: "reliabilityTable",
+        23: "generate_structured_eval_table",
     }
     
     def __init__(self):
@@ -157,12 +156,25 @@ class Analysis:
             unique = {cite for cite in citations if pd.notna(cite)}
             return ", ".join(f"\\citepPS{{{c}}}" for c in unique) if unique else "\\citepPS{placeholder}"
 
-        # Extract and explode values by delimiter
-        rows = [
-            {group_by_col: value.strip(), "Paper ID": row[count_col], "Citation Code": row[citation_col]}
-            for _, row in df.iterrows() if pd.notna(row[group_by_col])
-            for value in str(row[group_by_col]).split(delimiter) if value.strip()
-        ]
+        # Extract and explode values by delimiter if it exist
+        rows = []
+        for _, row in df.iterrows():
+            cell_value = row[group_by_col]
+            if pd.isna(cell_value):
+                continue
+
+            if delimiter is None:
+                values = [str(cell_value).strip()]
+            else:
+                values = [v.strip() for v in str(cell_value).split(delimiter) if v.strip()]
+
+            for value in values:
+                rows.append({
+                    group_by_col: value,
+                    "Paper ID": row[count_col],
+                    "Citation Code": row.get(citation_col)
+                })
+
 
         exploded_df = pd.DataFrame(rows)
 
@@ -200,50 +212,57 @@ class Analysis:
 # RQ 1 
 # =======================          
     def motivationsTable(self):
-        self.generate_summary_table("Motivation (Clustered)", "Motivations in Studies", "motivations", "p{5cm} l p{12.5cm}", "Motivation", "RQ1/motivations")
+        self.generate_summary_table("Motivation (Clustered)", "Motivations in Studies", "motivations", "p{2.5cm} l p{15cm}", "Motivation", "RQ1/motivations")
         
     def intentsTable(self):
-        self.generate_summary_table("Intent", "Intents in Studies", "rq1-intent", "p{5cm} l p{12.5cm}", "Intent", "RQ1/intentsTable")
+        self.generate_summary_table("Intent", "Intents in Studies", "rq1-intent", "p{4cm} l p{13.5cm}", "Intent", "RQ1/intentsTable")
         
     def domainsTable(self):
-        self.generate_summary_table("Domain (Aggregated)", "Domains of Studies", "rq1-domains", "p{5cm} l p{12.5cm}", "Domain", "RQ1/domainsTable")
+        self.generate_other_cat_table(
+            group_by_col="Domain (Aggregated)",
+            latex_caption="Domains of Studies",
+            latex_label="rq1-domains",
+            latex_tabular_size="p{4cm} l p{13.5cm}",
+            latex_first_column="Domain",
+            latex_filename="RQ1/domainsTable",
+            delimiter=None,
+            threshold=2,
+        )
+        
 
 # =======================
 # RQ 2
 # =======================
-    def topologyExtractionTable(self):
-        df = self.df.copy()
-        topology_categories = ["Hierarchical", "Centralized", "Decentralized", "Distributed", "Federated"]
-        df["Extracted Topologies"] = df["Topology of DT/PT"].apply(lambda x: list(set(topology_categories).intersection(re.findall(r"\b\w+\b", str(x)))) if pd.notna(x) else [])
-        summary_df = df.explode("Extracted Topologies").groupby("Extracted Topologies").agg(
-            Paper_Count=("Paper ID", "count"),
-            Citations=("Citation Code", lambda x: ", ".join(f"\\citepPS{{{cite}}}" for cite in x.dropna().unique()) if x.dropna().any() else "\\citepPS{placeholder}")
-        ).reset_index().sort_values(by="Paper_Count", ascending=False)
-        latex_table = self.generate_latex_table(summary_df, "Topologies in Studies", "rq2-topology", "p{3.5cm} l p{15cm}", "Topology")
-        self.saveLatex("RQ2/topologyExtractionTable", latex_table)
+    def topologyExtractionTable(self):        
+        self.generate_summary_table("Topology of DT/PT (Cleaned)", "Topologies in Studies", "rq2-topology", "p{2.5cm} l p{15cm}", "Topology", "RQ2/topologyExtractionTable")
 
+    def spatialDistributionTable(self):
+        self.generate_summary_table("Spatial Distribution", "Spatially Distributed Topologies in Studies", "rq2-spatial-distribution", "p{3.5cm} l p{15cm}", "Distribution", "RQ2/spatialDistributionTable")
+        
     def coordinationExtractionTable(self):
         self.generate_summary_table("Coordination (Cleaned)", "Coordination in Studies", "rq2-coordination", "p{3.5cm} l p{15cm}", "Coordination", "RQ2/coordinationExtractionTable")
     
     def constituentUnitsTable(self):
         self.generate_summary_table("Constituent unit (higher level aggregation)", "Constituent Units in Studies", "rq2-constituent-units", "p{5cm} l p{12.5cm}", "Constituent Unit", "RQ2/constituentUnitsTable")
         
-    def programmingLangaugesTables(self):        
-        self.generate_delimiter_table(
-        column="Programming Languages (General Purpose)", 
-        caption="Programming Languages Used in Papers", 
-        label="rq2-programming-language", 
-        tabular_size="p{5cm} l p{11.5cm}", 
-        first_column_name="Programming Language", 
-        save_location="RQ2/generalProgrammingLanguagesTable"
+    def programmingLangaugesTables(self):                
+        self.generate_other_cat_table(
+            group_by_col="Programming Languages (General Purpose)",
+            latex_caption="Programming Languages Used in Papers",
+            latex_label="rq2-programming-language",
+            latex_tabular_size="p{1.5cm} l p{16cm}",
+            latex_first_column="Language",
+            latex_filename="RQ2/generalProgrammingLanguagesTable",
+            delimiter=", ",
+            threshold=1,
         )
         
         self.generate_delimiter_table(
             column="Programming Languages (Markup, Styling)", 
             caption="Styling and Markup Programming Languages Used in Papers", 
             label="rq2-markup-styling-programming-language", 
-            tabular_size="p{5cm} l p{11.5cm}", 
-            first_column_name="Programming Language", 
+            tabular_size="p{1.5cm} l p{16cm}", 
+            first_column_name="Language", 
             save_location="RQ2/markupStylingProgrammingLanguagesTable"
         )
         
@@ -251,8 +270,8 @@ class Analysis:
         column="Programming Languages (Data Representation)", 
         caption="Data Representation Formats Used in Papers", 
         label="rq2-data-representation-formats", 
-        tabular_size="p{5cm} l p{11.5cm}", 
-        first_column_name="Data Format", 
+        tabular_size="p{1.5cm} l p{16cm}", 
+        first_column_name="Format", 
         save_location="RQ2/dataRepresentationFormatTable"
     )
 
@@ -263,23 +282,23 @@ class Analysis:
 
         # Dictionary mapping column names to LaTeX labels and filenames
         categories = {
-            "Digital Twin & IoT": ("DT and IoT Frameworks used in Studies", "rq2-frameworks-dt-iot", "RQ2/frameworks_tables/dtIot"),
-            "Modeling & Simulation": ("Modeling and Simulation Frameworks", "rq2-frameworks-modeling", "RQ2/frameworks_tables/modeling"),
-            "AI, Data Analytics & Machine Learning": ("AI and Data Analytics Frameworks", "rq2-frameworks-ai", "RQ2/frameworks_tables/ai"),
-            "Cloud, Edge, and DevOps": ("Cloud and Edge Frameworks", "rq2-frameworks-cloud", "RQ2/frameworks_tables/cloud"),
-            "Systems Engineering & Architecture": ("Systems Engineering Frameworks", "rq2-frameworks-systems", "RQ2/frameworks_tables/systems"),
-            "Data Management": ("Data Management Frameworks", "rq2-frameworks-data", "RQ2/frameworks_tables/data"),
-            "Geospatial & Visualization Technologies": ("Geospatial and Visualization Frameworks", "rq2-frameworks-geo", "RQ2/frameworks_tables/geo"),
-            "Application Development & Web Technologies": ("App Development and Web Frameworks", "rq2-frameworks-appdev", "RQ2/frameworks_tables/appdev"),
+            "Digital Twin & IoT": ("DT and IoT Frameworks used in Studies", "rq2-frameworks-dt-iot", "RQ2/frameworks_tables/dtIot", "p{5cm} l p{13.5cm}"),
+            "Modeling & Simulation": ("Modeling and Simulation Frameworks", "rq2-frameworks-modeling", "RQ2/frameworks_tables/modeling", "p{6cm} l p{12.5cm}"),
+            "AI, Data Analytics & Machine Learning": ("AI and Data Analytics Frameworks", "rq2-frameworks-ai", "RQ2/frameworks_tables/ai", "p{2cm} l p{15.5cm}"),
+            "Cloud, Edge, and DevOps": ("Cloud and Edge Frameworks", "rq2-frameworks-cloud", "RQ2/frameworks_tables/cloud", "p{2cm} l p{15.5cm}"),
+            "Systems Engineering & Architecture": ("Systems Engineering Frameworks", "rq2-frameworks-systems", "RQ2/frameworks_tables/systems", "p{4cm} l p{14.5cm}"),
+            "Data Management": ("Data Management Frameworks", "rq2-frameworks-data", "RQ2/frameworks_tables/data", "p{2cm} l p{15.5cm}"),
+            "Geospatial & Visualization Technologies": ("Geospatial and Visualization Frameworks", "rq2-frameworks-geo", "RQ2/frameworks_tables/geo", "p{3cm} l p{14.5cm}"),
+            "Application Development & Web Technologies": ("App Development and Web Frameworks", "rq2-frameworks-appdev", "RQ2/frameworks_tables/appdev", "p{3cm} l p{14.5cm}"),
         }
 
         # Loop through each category and generate the LaTeX table
-        for column, (caption, label, filename) in categories.items():
+        for column, (caption, label, filename, size) in categories.items():
             self.generate_other_cat_table(
                 group_by_col=column,
                 latex_caption=caption,
                 latex_label=label,
-                latex_tabular_size="p{3.5cm} l p{15cm}",
+                latex_tabular_size=size,
                 latex_first_column="Tool",
                 latex_filename=filename,
                 delimiter=delimiter,
@@ -291,17 +310,14 @@ class Analysis:
 # RQ 3 
 # =======================
     def autonomyTable(self):
-        self.generate_summary_table("DT Class", "Levels of Autonomy in Studies", "rq3-autonomy", "p{3.5cm} l p{15cm}", "Autonomy LVL", "RQ3/autonomyTable")
+        self.generate_summary_table("DT Class", "Levels of Autonomy in Studies", "rq3-autonomy", "p{5cm} l p{13.5cm}", "Autonomy", "RQ3/autonomyTable")
 
-    def levelOfIntegrationTable(self):
-        self.generate_summary_table("Level of Integration (Cleaned)", "Level of Integration in Studies", "rq3-lvl-integration", "p{3.5cm} l p{15cm}", "Integration LVL", "RQ3/levelOfIntegrationTable")
-        
     def dtServicesTable(self):
         self.generate_delimiter_table(
         column="Services (Cleaned)", 
         caption="DT Services Used in Papers", 
         label="rq3-dt-services", 
-        tabular_size="p{5cm} l p{11.5cm}", 
+        tabular_size="p{3.5cm} l p{14cm}", 
         first_column_name="Service", 
         save_location="RQ3/dtServicesTable"
         )
@@ -315,99 +331,83 @@ class Analysis:
             self.generate_summary_table("Type of SoS", "SoS Type in Studies", "sos-type", "p{2.5cm} l p{14cm}", "SoS", "RQ4/sosTypeTable")
 
     def emergenceTable(self):
-        self.generate_summary_table("Emergence", "Emergence Type in Studies", "emergence-type", "p{2.5cm} l p{14cm}", "Emergence", "RQ4/emergenceTable")
+        self.generate_summary_table("Emergence", "Emergence Type in Studies", "emergence-type", "p{1.5cm} l p{15cm}", "Emergence", "RQ4/emergenceTable")
             
 # =======================
 # RQ 5 
 # =======================
     def trlTable(self):
-        self.generate_summary_table("TRL", "TRL in Studies", "trl", "p{2.5cm} l p{14cm}", "TRL", "RQ5/trlTable")
+        custom_order = [
+            "Initial",
+            "Proof-of-Concept",
+            "Demo Prototype",
+            "Deployed Prototype",
+            "Operational"
+        ]
+        self.generate_summary_table("TRL", "TRL in Studies", "trl", "p{3.5cm} l p{15cm}", "TRL", "RQ5/trlTable", custom_order)            
+            
+    def generate_structured_eval_table(self):
+        df = self.df.copy()
+        eval_col = "Evaluation"
+        expanded_col = "Eval/Val Expanded"
+        citation_col = "Citation Code"
 
-    def EvaluationTable(self):
-        self.generate_summary_table("Evaluation", "Evaluation in Studies", "rq5-evaluation", "p{2.5cm} l p{14cm}", "Evaluation", "RQ5/EvaluationTable")
-        
-    VALIDATION_CATEGORIES = {
-    "simulation as an empirical method",
-    "laboratory experiments",
-    "prototyping",
-    "mathematical analysis and proof of properties",
-    "academic case study"
-    }
+        hierarchy = {}
 
-    EVALUATION_CATEGORIES = {
-        "industrial case study",
-        "controlled experiment with practitioners",
-        "action research",
-        "ethnography"
-    }
-    
-    def generate_validation_evaluation_table(self, category_type="validation", save_location="RQ5/validation_evaluation"):
-        column_name = "Eval/Val Expanded"
-        VALIDATION_CATEGORIES = {
-            "simulation as an empirical method",
-            "laboratory experiments",
-            "prototyping",
-            "mathematical analysis and proof of properties",
-            "academic case study",
-            "Other - Architectural Design / Conceptual Modeling"
-        }
+        for _, row in df.iterrows():
+            eval_type = str(row[eval_col]).title() if pd.notna(row[eval_col]) else None
+            if pd.isna(eval_type):
+                continue
 
-        EVALUATION_CATEGORIES = {
-            "industrial case study",
-            "controlled experiment with practitioners",
-            "action research",
-            "ethnography"
-        }
-        
-        for category_type in ["validation", "evaluation"]:
+            expanded_items = [s.strip().title() for s in str(row[expanded_col]).split(",") if s.strip()]
+            citation = row[citation_col]
 
-            # Select category set
-            if category_type.lower() == "validation":
-                selected_set = VALIDATION_CATEGORIES
-                caption = "Validation Research Methods in Studies"
-                label = "rq5-validation"
-                first_column_name = "Validation Method"
-            elif category_type.lower() == "evaluation":
-                selected_set = EVALUATION_CATEGORIES
-                caption = "Evaluation Research Methods in Studies"
-                label = "rq5-evaluation"
-                first_column_name = "Evaluation Method"
-            else:
-                raise ValueError("category_type must be either 'validation' or 'evaluation'")
+            if eval_type not in hierarchy:
+                hierarchy[eval_type] = {}
 
-            df = self.df.copy()
-            citation_col = "Citation Code"
+            for item in expanded_items:
+                if item not in hierarchy[eval_type]:
+                    hierarchy[eval_type][item] = set()
+                if pd.notna(citation):
+                    hierarchy[eval_type][item].add(citation)
 
-            rows = []
-            for _, row in df.iterrows():
-                methods = str(row[column_name]).lower().split(",") if pd.notna(row[column_name]) else []
-                for method in methods:
-                    method_clean = method.strip()
-                    if method_clean in selected_set:
-                        rows.append({
-                            "Method": method_clean.title(),
-                            "Paper ID": row["Paper ID"],
-                            "Citation Code": row[citation_col] if citation_col in row else None
-                        })
+        # Start LaTeX table
+        latex_lines = [
+            "\\begin{table*}[]",
+            "\\centering",
+            "\\setlength{\\tabcolsep}{1em}",
+            "\\caption{Evaluation types and methods used in studies}",
+            "\\label{tab:rq5-evaluation-structured}",
+            "\\footnotesize",
+            "\\begin{tabular}{@{}p{4.0cm} l p{10cm}@{}}", 
+            "\\toprule",
+            "\\textbf{Evaluation Category} & \\textbf{Count} & \\textbf{Studies} \\\\",
+            "\\midrule"
+        ]
 
-            if not rows:
-                print(f"No matching {category_type} methods found.")
-                return
+        for eval_type, submethods in hierarchy.items():
+            total_cites = set().union(*submethods.values())
+            total_count = len(total_cites)
+            # Top-level row: no citations
+            latex_lines.append(f"\\textbf{{{eval_type}}} & \\textbf{{{total_count}}} & \\\\")
 
-            exploded_df = pd.DataFrame(rows)
+            # Submethods with citations
+            for method, citations in sorted(submethods.items()):
+                count = len(citations)
+                citation_str = ", ".join(f"\\citepPS{{{c}}}" for c in sorted(citations))
+                latex_lines.append(f"\\;\;\\corner{{}} {method} & {count} & {citation_str} \\\\")
 
-            summary_df = exploded_df.groupby("Method").agg(
-                Paper_Count=("Paper ID", "nunique"),
-                Citations=("Citation Code", lambda x: ", ".join([f"\\citepPS{{{cite}}}" for cite in x.dropna().unique()]) if not x.dropna().empty else "\\citepPS{{placeholder}}")
-            ).reset_index().sort_values(by="Paper_Count", ascending=False)
+        latex_lines.extend([
+            "\\bottomrule",
+            "\\end{tabular}",
+            "\\end{table*}"
+        ])
 
-            latex_table = self.generate_latex_table(summary_df, caption, label, "p{5cm} l p{11.5cm}", first_column_name)
-            self.saveLatex(f"{save_location}_{category_type}", latex_table)
-
+        self.saveLatex("RQ5/hierarchicalEvaluationTable", "\n".join(latex_lines))
 
         
     def contributionTypeTable(self):
-        self.generate_summary_table("Contribution type", "Contribution Type in Studies", "rq5-contribution-type", "p{5cm} l p{12.5cm}", "Contribution Type", "RQ5/contributionTypeTable")
+        self.generate_summary_table("Contribution type", "Contribution Type in Studies", "rq5-contribution-type", "p{2cm} l p{15.5cm}", "Contribution", "RQ5/contributionTypeTable")
                   
     def standardsTable(self, threshold=2):
         df = self.df.copy()
@@ -446,11 +446,11 @@ class Analysis:
                 }])
             ], ignore_index=True)
         
-        latex_table = self.generate_latex_table(summary_df, "Standards Used in Studies", "standards", "p{5cm} l p{11.5cm}", "Standard")
+        latex_table = self.generate_latex_table(summary_df, "Standards Used in Studies", "standards", "p{6.5cm} l p{10cm}", "Standard")
         self.saveLatex("RQ5/standards", latex_table)
         
     def dtOrSoSRelated(self):
-        self.generate_summary_table("Do The Studies Use Standards in More of an SoS or DT context", "Context of Standards used in Studies", "dtOrSoSRelated", "p{5cm} l p{12.5cm}", "Context", "RQ5/dtOrSoSRelated")
+        self.generate_summary_table("Do The Studies Use Standards in More of an SoS or DT context", "Context of Standards used in Studies", "dtOrSoSRelated", "p{2cm} l p{15.5cm}", "Context", "RQ5/dtOrSoSRelated")
         
 
     
@@ -465,7 +465,7 @@ class Analysis:
             "Explicitly Modelled",
             "Evaluated or Validated"
         ]
-        self.generate_summary_table("Security/Confidentiality Level", "Security in Studies", "security", "p{5cm} l p{12.5cm}", "Context", "RQ7/securityTable", custom_order)
+        self.generate_summary_table("Security/Confidentiality Level", "Security in Studies", "security", "p{4cm} l p{13.5cm}", "Context", "RQ7/securityTable", custom_order)
         
     def reliabilityTable(self):
         custom_order = [
@@ -475,7 +475,7 @@ class Analysis:
             "Explicitly Modelled",
             "Evaluated or Validated"
         ]
-        self.generate_summary_table("Reliability Level", "Reliability in Studies", "reliability", "p{5cm} l p{12.5cm}", "Context", "RQ7/reliabilityTable", custom_order)
+        self.generate_summary_table("Reliability Level", "Reliability in Studies", "reliability", "p{4cm} l p{13.5cm}", "Context", "RQ7/reliabilityTable", custom_order)
 
                      
 # =======================
