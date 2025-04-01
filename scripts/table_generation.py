@@ -1,4 +1,5 @@
 import argparse
+from collections import defaultdict
 import os
 import re
 import pandas as pd
@@ -33,6 +34,7 @@ class Analysis:
         20: "securityTable", 
         21: "reliabilityTable",
         23: "generate_structured_eval_table",
+        24: "generate_formalisms_methods_table",
     }
     
     def __init__(self):
@@ -321,6 +323,88 @@ class Analysis:
         first_column_name="Service", 
         save_location="RQ3/dtServicesTable"
         )
+
+
+    def generate_formalisms_methods_table(self, threshold=2):
+        df = self.df.copy()
+        citation_col = "Citation Code"
+
+        method_categories = [
+            "Mathematical and Statistical",
+            "Formal and State Based Methods",
+            "Discrete-Event Simulation",
+            "Continuous Simulation",
+            "Agent-Based Simulation",
+            "Ontological and Knowledge Representation",
+            "Architectural and Structural",
+            "Spatial and Visual Modelling",
+            "AI and Machine Learning"
+        ]
+
+        # Structure: category -> method -> {citations, mention_count}
+        hierarchy = defaultdict(lambda: defaultdict(lambda: {"citations": set(), "count": 0}))
+
+        for _, row in df.iterrows():
+            citation = row[citation_col]
+
+            for category in method_categories:
+                if pd.isna(row[category]):
+                    continue
+
+                # submethods = [s.strip().title() for s in str(row[category]).split(",") if s.strip()]
+                submethods = [s.strip() for s in str(row[category]).split(",") if s.strip()]
+                for method in submethods:
+                    hierarchy[category][method]["count"] += 1
+                    if pd.notna(citation):
+                        hierarchy[category][method]["citations"].add(citation)
+
+        # LaTeX table generation
+        latex_lines = [
+            "\\begin{table*}[]",
+            "\\centering",
+            "\\setlength{\\tabcolsep}{1em}",
+            "\\caption{Modeling and Simulation Methods Used in Studies}",
+            "\\label{tab:modeling-methods-structured}",
+            "\\footnotesize",
+            "\\begin{tabular}{@{}p{5.0cm} l p{9cm}@{}}", 
+            "\\toprule",
+            "\\textbf{Category} & \\textbf{Mentions} & \\textbf{Studies} \\\\",
+            "\\midrule"
+        ]
+
+        # for category, submethods in hierarchy.items():
+        for category in method_categories:
+            submethods = hierarchy.get(category, {})
+            above_threshold = {k: v for k, v in submethods.items() if v["count"] >= threshold}
+            below_threshold = {k: v for k, v in submethods.items() if v["count"] < threshold}
+
+            if not above_threshold and not below_threshold:
+                continue
+
+            total_mentions = sum(v["count"] for v in submethods.values())
+            latex_lines.append(f"\\textbf{{{category}}} & \\textbf{{{total_mentions}}} & \\\\")
+
+            for method, data in sorted(above_threshold.items()):
+                count = data["count"]
+                citations = data["citations"]
+                citation_str = ", ".join(f"\\citepPS{{{c}}}" for c in sorted(citations))
+                latex_lines.append(f"\\;\;\\corner{{}} {method} & {count} & {citation_str} \\\\")
+
+            if below_threshold:
+                other_mentions = sum(v["count"] for v in below_threshold.values())
+                other_citations = set().union(*[v["citations"] for v in below_threshold.values()])
+                other_citation_str = ", ".join(f"\\citepPS{{{c}}}" for c in sorted(other_citations))
+                latex_lines.append(f"\\;\;\\corner{{}} \\textit{{Other}} & {other_mentions} & {other_citation_str} \\\\")
+
+        latex_lines.extend([
+            "\\bottomrule",
+            "\\end{tabular}",
+            "\\end{table*}"
+        ])
+
+        self.saveLatex("RQ3/hierarchicalModelingMethodsTable", "\n".join(latex_lines))
+
+
 
 
     
