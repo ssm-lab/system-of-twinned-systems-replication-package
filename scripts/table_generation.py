@@ -29,7 +29,7 @@ class Analysis:
         14: "contributionTypeTable", #RQ5
         15: "dtServicesTable", #RQ3
         16: "programmingLangaugesTables", #RQ2
-        17: "frameworksTables", #RQ3
+        17: "generate_frameworks_table", #RQ3
         18: "dtOrSoSRelated", # RQ5
         20: "securityTable", 
         21: "reliabilityTable",
@@ -247,65 +247,170 @@ class Analysis:
     def constituentUnitsTable(self):
         self.generate_summary_table("Constituent unit (higher level aggregation)", "Constituent Units in Studies", "rq2-constituent-units", "p{5cm} l p{12.5cm}", "Constituent Unit", "RQ2/constituentUnitsTable")
         
-    def programmingLangaugesTables(self):                
-        self.generate_other_cat_table(
-            group_by_col="Programming Languages (General Purpose)",
-            latex_caption="Programming Languages Used in Papers",
-            latex_label="rq2-programming-language",
-            latex_tabular_size="p{1.5cm} l p{16cm}",
-            latex_first_column="Language",
-            latex_filename="RQ2/generalProgrammingLanguagesTable",
-            delimiter=", ",
-            threshold=1,
-        )
-        
-        self.generate_delimiter_table(
-            column="Programming Languages (Markup, Styling)", 
-            caption="Styling and Markup Programming Languages Used in Papers", 
-            label="rq2-markup-styling-programming-language", 
-            tabular_size="p{1.5cm} l p{16cm}", 
-            first_column_name="Language", 
-            save_location="RQ2/markupStylingProgrammingLanguagesTable"
-        )
-        
-        self.generate_delimiter_table(
-        column="Programming Languages (Data Representation)", 
-        caption="Data Representation Formats Used in Papers", 
-        label="rq2-data-representation-formats", 
-        tabular_size="p{1.5cm} l p{16cm}", 
-        first_column_name="Format", 
-        save_location="RQ2/dataRepresentationFormatTable"
-    )
+    def programmingLangaugesTables(self, threshold=2):      
+        df = self.df.copy()
+        citation_col = "Citation Code"
 
-        
-    def frameworksTables(self):
-        threshold = 1
-        delimiter = ", "
+        method_categories = [
+            "General Purpose",
+            "Markup and Styling",
+            "Data Representation",
+        ]
 
-        # Dictionary mapping column names to LaTeX labels and filenames
-        categories = {
-            "Digital Twin & IoT": ("DT and IoT Frameworks used in Studies", "rq2-frameworks-dt-iot", "RQ2/frameworks_tables/dtIot", "p{5cm} l p{13.5cm}"),
-            "Modeling & Simulation": ("Modeling and Simulation Frameworks", "rq2-frameworks-modeling", "RQ2/frameworks_tables/modeling", "p{6cm} l p{12.5cm}"),
-            "AI, Data Analytics & Machine Learning": ("AI and Data Analytics Frameworks", "rq2-frameworks-ai", "RQ2/frameworks_tables/ai", "p{2cm} l p{15.5cm}"),
-            "Cloud, Edge, and DevOps": ("Cloud and Edge Frameworks", "rq2-frameworks-cloud", "RQ2/frameworks_tables/cloud", "p{2cm} l p{15.5cm}"),
-            "Systems Engineering & Architecture": ("Systems Engineering Frameworks", "rq2-frameworks-systems", "RQ2/frameworks_tables/systems", "p{4cm} l p{14.5cm}"),
-            "Data Management": ("Data Management Frameworks", "rq2-frameworks-data", "RQ2/frameworks_tables/data", "p{2cm} l p{15.5cm}"),
-            "Geospatial & Visualization Technologies": ("Geospatial and Visualization Frameworks", "rq2-frameworks-geo", "RQ2/frameworks_tables/geo", "p{3cm} l p{14.5cm}"),
-            "Application Development & Web Technologies": ("App Development and Web Frameworks", "rq2-frameworks-appdev", "RQ2/frameworks_tables/appdev", "p{3cm} l p{14.5cm}"),
+        # Structure: category -> method -> {citations, mention_count}
+        hierarchy = defaultdict(lambda: defaultdict(lambda: {"citations": set(), "count": 0}))
+
+        for _, row in df.iterrows():
+            citation = row[citation_col]
+
+            for category in method_categories:
+                if pd.isna(row[category]):
+                    continue
+
+                # submethods = [s.strip().title() for s in str(row[category]).split(",") if s.strip()]
+                submethods = [s.strip() for s in str(row[category]).split(",") if s.strip()]
+                for method in submethods:
+                    hierarchy[category][method]["count"] += 1
+                    if pd.notna(citation):
+                        hierarchy[category][method]["citations"].add(citation)
+
+        # LaTeX table generation
+        latex_lines = [
+            "\\begin{table*}[]",
+            "\\centering",
+            "\\setlength{\\tabcolsep}{1em}",
+            "\\caption{Programming Langauges and Data Formats Methods Used in Studies}",
+            "\\label{tab:programming-languages-structured}",
+            "\\footnotesize",
+            "\\begin{tabular}{@{}p{5.0cm} l p{9cm}@{}}", 
+            "\\toprule",
+            "\\textbf{Category} & \\textbf{Mentions} & \\textbf{Studies} \\\\",
+            "\\midrule"
+        ]
+
+        # for category, submethods in hierarchy.items():
+        for category in method_categories:
+            submethods = hierarchy.get(category, {})
+            above_threshold = {k: v for k, v in submethods.items() if v["count"] >= threshold}
+            below_threshold = {k: v for k, v in submethods.items() if v["count"] < threshold}
+
+            if not above_threshold and not below_threshold:
+                continue
+
+            # Compute counts *after* filtering
+            above_count = sum(len(v["citations"]) for v in above_threshold.values())
+            below_citations = set().union(*[v["citations"] for v in below_threshold.values()])
+            below_count = len(below_citations)
+
+            category_count = above_count + below_count
+            latex_lines.append(f"\\textbf{{{category}}} & \\textbf{{\\maindatabar{{{category_count}}}}} & \\\\")
+
+
+            for method, data in sorted(above_threshold.items()):
+                count = len(data["citations"])
+                citation_str = ", ".join(f"\\citepPS{{{c}}}" for c in sorted(data["citations"]))
+                latex_lines.append(f"\\;\;\\corner{{}} {method} & \\maindatabar{{{count}}} & {citation_str} \\\\")
+
+            if below_threshold:
+                other_citations = set().union(*[v["citations"] for v in below_threshold.values()])
+                other_count = len(other_citations)
+                other_citation_str = ", ".join(f"\\citepPS{{{c}}}" for c in sorted(other_citations))
+                latex_lines.append(f"\\;\;\\corner{{}} \\textit{{Other}} & \\maindatabar{{{other_count}}} & {other_citation_str} \\\\")
+
+
+
+        latex_lines.extend([
+            "\\bottomrule",
+            "\\end{tabular}",
+            "\\end{table*}"
+        ])
+
+        self.saveLatex("RQ2/hierarchicalProgrammingLanguagesTable", "\n".join(latex_lines))           
+    
+       
+
+    
+    
+    def generate_frameworks_table(self, threshold=2):
+        df = self.df.copy()
+        citation_col = "Citation Code"
+
+        latex_friendly_names = {
+            "Digital Twin & IoT": "Digital Twin \\& IoT",
+            "Modeling & Simulation": "Modeling \\& Simulation",
+            "AI, Data Analytics & Machine Learning": "AI, Data Analytics \\& ML",
+            "Cloud, Edge, and DevOps": "Cloud, Edge, and DevOps",
+            "Systems Engineering & Architecture": "Systems Eng. \\& Architecture",
+            "Data Management": "Data Management",
+            "Geospatial & Visualization Technologies": "Geospatial \\& Visualization",
+            "Application Development & Web Technologies": "App/Web Technologies",
         }
 
-        # Loop through each category and generate the LaTeX table
-        for column, (caption, label, filename, size) in categories.items():
-            self.generate_other_cat_table(
-                group_by_col=column,
-                latex_caption=caption,
-                latex_label=label,
-                latex_tabular_size=size,
-                latex_first_column="Tool",
-                latex_filename=filename,
-                delimiter=delimiter,
-                threshold=threshold,
-            )
+        # Structure: category -> method -> {citations, mention_count}
+        hierarchy = defaultdict(lambda: defaultdict(lambda: {"citations": set(), "count": 0}))
+
+        for _, row in df.iterrows():
+            citation = row[citation_col]
+
+            for category in latex_friendly_names.keys():
+                if pd.isna(row[category]):
+                    continue
+
+                submethods = [s.strip() for s in str(row[category]).split(",") if s.strip()]
+                for method in submethods:
+                    hierarchy[category][method]["count"] += 1
+                    if pd.notna(citation):
+                        hierarchy[category][method]["citations"].add(citation)
+
+        # LaTeX table generation
+        latex_lines = [
+            "\\begin{table*}[]",
+            "\\centering",
+            "\\setlength{\\tabcolsep}{1em}",
+            "\\caption{Tools and Frameworks Used in Studies}",
+            "\\label{tab:frameworks-structured}",
+            "\\footnotesize",
+            "\\begin{tabular}{@{}p{5.0cm} l p{9cm}@{}}", 
+            "\\toprule",
+            "\\textbf{Category} & \\textbf{Mentions} & \\textbf{Studies} \\\\",
+            "\\midrule"
+        ]
+
+        for category, latex_label in latex_friendly_names.items():
+            submethods = hierarchy.get(category, {})
+            above_threshold = {k: v for k, v in submethods.items() if v["count"] >= threshold}
+            below_threshold = {k: v for k, v in submethods.items() if v["count"] < threshold}
+
+            if not above_threshold and not below_threshold:
+                continue
+
+            # Compute counts *after* filtering
+            above_count = sum(len(v["citations"]) for v in above_threshold.values())
+            below_citations = set().union(*[v["citations"] for v in below_threshold.values()])
+            below_count = len(below_citations)
+
+            category_count = above_count + below_count
+            latex_lines.append(f"\\textbf{{{latex_label}}} & \\textbf{{\\maindatabar{{{category_count}}}}} & \\\\")
+
+            for method, data in sorted(above_threshold.items()):
+                count = len(data["citations"])
+                citation_str = ", ".join(f"\\citepPS{{{c}}}" for c in sorted(data["citations"]))
+                latex_lines.append(f"\\;\\;\\corner{{}} {method} & \\maindatabar{{{count}}} & {citation_str} \\\\")
+
+            if below_threshold:
+                other_citations = set().union(*[v["citations"] for v in below_threshold.values()])
+                other_count = len(other_citations)
+                other_citation_str = ", ".join(f"\\citepPS{{{c}}}" for c in sorted(other_citations))
+                latex_lines.append(f"\\;\\;\\corner{{}} \\textit{{Other}} & \\maindatabar{{{other_count}}} & {other_citation_str} \\\\")
+
+        latex_lines.extend([
+            "\\bottomrule",
+            "\\end{tabular}",
+            "\\end{table*}"
+        ])
+
+        self.saveLatex("RQ2/hierarchicalFrameworksTable", "\n".join(latex_lines))
+
 
     
 # =======================
