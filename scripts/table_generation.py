@@ -382,19 +382,19 @@ class Analysis:
                 continue
 
             total_mentions = sum(v["count"] for v in submethods.values())
-            latex_lines.append(f"\\textbf{{{category}}} & \\textbf{{{total_mentions}}} & \\\\")
+            latex_lines.append(f"\\textbf{{{category}}} & \\textbf{{\maindatabar{{{total_mentions}}}}} & \\\\")
 
             for method, data in sorted(above_threshold.items()):
                 count = data["count"]
                 citations = data["citations"]
                 citation_str = ", ".join(f"\\citepPS{{{c}}}" for c in sorted(citations))
-                latex_lines.append(f"\\;\;\\corner{{}} {method} & {count} & {citation_str} \\\\")
+                latex_lines.append(f"\\;\;\\corner{{}} {method} & \maindatabar{{{count}}} & {citation_str} \\\\")
 
             if below_threshold:
                 other_mentions = sum(v["count"] for v in below_threshold.values())
                 other_citations = set().union(*[v["citations"] for v in below_threshold.values()])
                 other_citation_str = ", ".join(f"\\citepPS{{{c}}}" for c in sorted(other_citations))
-                latex_lines.append(f"\\;\;\\corner{{}} \\textit{{Other}} & {other_mentions} & {other_citation_str} \\\\")
+                latex_lines.append(f"\\;\;\\corner{{}} \\textit{{Other}} & \maindatabar{{{other_mentions}}} & {other_citation_str} \\\\")
 
         latex_lines.extend([
             "\\bottomrule",
@@ -473,13 +473,13 @@ class Analysis:
             total_cites = set().union(*submethods.values())
             total_count = len(total_cites)
             # Top-level row: no citations
-            latex_lines.append(f"\\textbf{{{eval_type}}} & \\textbf{{{total_count}}} & \\\\")
+            latex_lines.append(f"\\textbf{{{eval_type}}} & \\textbf{{\maindatabar{{{total_count}}}}} & \\\\")
 
             # Submethods with citations
             for method, citations in sorted(submethods.items()):
                 count = len(citations)
                 citation_str = ", ".join(f"\\citepPS{{{c}}}" for c in sorted(citations))
-                latex_lines.append(f"\\;\;\\corner{{}} {method} & {count} & {citation_str} \\\\")
+                latex_lines.append(f"\\;\;\\corner{{}} {method} & \maindatabar{{{count}}} & {citation_str} \\\\")
 
         latex_lines.extend([
             "\\bottomrule",
