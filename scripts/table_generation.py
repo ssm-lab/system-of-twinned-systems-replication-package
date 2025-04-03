@@ -381,20 +381,27 @@ class Analysis:
             if not above_threshold and not below_threshold:
                 continue
 
-            total_mentions = sum(v["count"] for v in submethods.values())
-            latex_lines.append(f"\\textbf{{{category}}} & \\textbf{{\maindatabar{{{total_mentions}}}}} & \\\\")
+            # Compute counts *after* filtering
+            above_count = sum(len(v["citations"]) for v in above_threshold.values())
+            below_citations = set().union(*[v["citations"] for v in below_threshold.values()])
+            below_count = len(below_citations)
+
+            category_count = above_count + below_count
+            latex_lines.append(f"\\textbf{{{category}}} & \\textbf{{\\maindatabar{{{category_count}}}}} & \\\\")
+
 
             for method, data in sorted(above_threshold.items()):
-                count = data["count"]
-                citations = data["citations"]
-                citation_str = ", ".join(f"\\citepPS{{{c}}}" for c in sorted(citations))
-                latex_lines.append(f"\\;\;\\corner{{}} {method} & \maindatabar{{{count}}} & {citation_str} \\\\")
+                count = len(data["citations"])
+                citation_str = ", ".join(f"\\citepPS{{{c}}}" for c in sorted(data["citations"]))
+                latex_lines.append(f"\\;\;\\corner{{}} {method} & \\maindatabar{{{count}}} & {citation_str} \\\\")
 
             if below_threshold:
-                other_mentions = sum(v["count"] for v in below_threshold.values())
                 other_citations = set().union(*[v["citations"] for v in below_threshold.values()])
+                other_count = len(other_citations)
                 other_citation_str = ", ".join(f"\\citepPS{{{c}}}" for c in sorted(other_citations))
-                latex_lines.append(f"\\;\;\\corner{{}} \\textit{{Other}} & \maindatabar{{{other_mentions}}} & {other_citation_str} \\\\")
+                latex_lines.append(f"\\;\;\\corner{{}} \\textit{{Other}} & \\maindatabar{{{other_count}}} & {other_citation_str} \\\\")
+
+
 
         latex_lines.extend([
             "\\bottomrule",
