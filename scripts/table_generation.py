@@ -247,7 +247,7 @@ class Analysis:
     def constituentUnitsTable(self):
         self.generate_summary_table("Constituent unit (higher level aggregation)", "Constituent Units in Studies", "rq2-constituent-units", "p{5cm} l p{12.5cm}", "Constituent Unit", "RQ2/constituentUnitsTable")
         
-    def programmingLangaugesTables(self, threshold=2):      
+    def programmingLangaugesTables(self, threshold=0):      
         df = self.df.copy()
         citation_col = "Citation Code"
 
@@ -306,7 +306,7 @@ class Analysis:
             latex_lines.append(f"\\textbf{{{category}}} & \\textbf{{\\maindatabar{{{category_count}}}}} & \\\\")
 
 
-            for method, data in sorted(above_threshold.items()):
+            for method, data in sorted(above_threshold.items(), key=lambda item: len(item[1]["citations"]), reverse=True):
                 count = len(data["citations"])
                 citation_str = ", ".join(f"\\citepPS{{{c}}}" for c in sorted(data["citations"]))
                 latex_lines.append(f"\\;\;\\corner{{}} {method} & \\maindatabar{{{count}}} & {citation_str} \\\\")
@@ -392,7 +392,7 @@ class Analysis:
             category_count = above_count + below_count
             latex_lines.append(f"\\textbf{{{latex_label}}} & \\textbf{{\\maindatabar{{{category_count}}}}} & \\\\")
 
-            for method, data in sorted(above_threshold.items()):
+            for method, data in sorted(above_threshold.items(), key=lambda item: len(item[1]["citations"]), reverse=True):
                 count = len(data["citations"])
                 citation_str = ", ".join(f"\\citepPS{{{c}}}" for c in sorted(data["citations"]))
                 latex_lines.append(f"\\;\\;\\corner{{}} {method} & \\maindatabar{{{count}}} & {citation_str} \\\\")
@@ -495,7 +495,7 @@ class Analysis:
             latex_lines.append(f"\\textbf{{{category}}} & \\textbf{{\\maindatabar{{{category_count}}}}} & \\\\")
 
 
-            for method, data in sorted(above_threshold.items()):
+            for method, data in sorted(above_threshold.items(), key=lambda item: len(item[1]["citations"]), reverse=True):
                 count = len(data["citations"])
                 citation_str = ", ".join(f"\\citepPS{{{c}}}" for c in sorted(data["citations"]))
                 latex_lines.append(f"\\;\;\\corner{{}} {method} & \\maindatabar{{{count}}} & {citation_str} \\\\")
@@ -588,7 +588,7 @@ class Analysis:
             latex_lines.append(f"\\textbf{{{eval_type}}} & \\textbf{{\maindatabar{{{total_count}}}}} & \\\\")
 
             # Submethods with citations
-            for method, citations in sorted(submethods.items()):
+            for method, citations in sorted(submethods.items(), key=lambda item: len(item[1]), reverse=True):
                 count = len(citations)
                 citation_str = ", ".join(f"\\citepPS{{{c}}}" for c in sorted(citations))
                 latex_lines.append(f"\\;\;\\corner{{}} {method} & \maindatabar{{{count}}} & {citation_str} \\\\")
