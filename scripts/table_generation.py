@@ -35,6 +35,7 @@ class Analysis:
         21: "reliabilityTable",
         23: "generate_structured_eval_table",
         24: "generate_formalisms_methods_table",
+        25: "generate_challenges_table",
     }
     
     def __init__(self):
@@ -236,7 +237,7 @@ class Analysis:
             "\\footnotesize",
             "\\begin{tabular}{@{}p{5.0cm} l p{9cm}@{}}", 
             "\\toprule",
-            f"\\textbf{{{column_label}}} & \\textbf{{Mentions}} & \\textbf{{Studies}} \\\\",
+            f"\\textbf{{{column_label}}} & \\textbf{{Cited In}} & \\textbf{{Studies}} \\\\",
             "\\midrule"
         ]
 
@@ -248,7 +249,10 @@ class Analysis:
             above = {k: v for k, v in submethods.items() if v["count"] >= threshold}
             below = {k: v for k, v in submethods.items() if v["count"] < threshold}
 
-            total_cites = sum(len(v["citations"]) for v in above.values()) + len(set().union(*[v["citations"] for v in below.values()]))
+            # total_cites = sum(len(v["citations"]) for v in above.values()) + len(set().union(*[v["citations"] for v in below.values()]))
+            all_citations = set().union(*(v["citations"] for v in submethods.values()))
+            total_cites = len(all_citations)
+
             label_name = latex_friendly_names.get(category, category) if latex_friendly_names else category
             latex_lines.append(f"\\textbf{{{label_name}}} & \\textbf{{\\maindatabar{{{total_cites}}}}} & \\\\")
 
@@ -289,6 +293,72 @@ class Analysis:
             delimiter=None,
             threshold=2,
         )
+        
+    def generate_challenges_table(self):
+        df = pd.read_excel(data_path, sheet_name="Challenges Seperated")
+        eval_col = "Challenges"
+        expanded_col = "Further Categorization"
+        citation_col = "Citation Code"
+
+        hierarchy = {}
+
+        for _, row in df.iterrows():
+            eval_type = str(row[eval_col]).title() if pd.notna(row[eval_col]) else None
+            if pd.isna(eval_type):
+                continue
+
+            expanded_items = [s.strip().title() for s in str(row[expanded_col]).split(",") if s.strip()]
+            citation = row[citation_col]
+
+            if eval_type not in hierarchy:
+                hierarchy[eval_type] = {}
+
+            for item in expanded_items:
+                if item not in hierarchy[eval_type]:
+                    hierarchy[eval_type][item] = set()
+                if pd.notna(citation):
+                    hierarchy[eval_type][item].add(citation)
+
+        # Start LaTeX table
+        latex_lines = [
+            "\\begin{table*}[]",
+            "\\centering",
+            "\\setlength{\\tabcolsep}{1em}",
+            "\\caption{Challenges in studies}",
+            "\\label{tab:rq1-challenges}",
+            "\\footnotesize",
+            "\\begin{tabular}{@{}p{5.0cm} l p{8cm}@{}}", 
+            "\\toprule",
+            "\\textbf{Evaluation Category} & \\textbf{Count} & \\textbf{Studies} \\\\",
+            "\\midrule"
+        ]
+        
+        sorted_hierarchy = sorted(
+            hierarchy.items(),
+            key=lambda item: len(set().union(*item[1].values())),
+            reverse=True
+        )
+
+        for eval_type, submethods in sorted_hierarchy:
+            total_cites = set().union(*submethods.values())
+            total_count = len(total_cites)
+            # Top-level row: no citations
+            latex_lines.append(f"\\textbf{{{eval_type}}} & \\textbf{{\maindatabar{{{total_count}}}}} & \\\\")
+
+            # Submethods with citations
+            for method, citations in sorted(submethods.items(), key=lambda item: len(item[1]), reverse=True):
+                count = len(citations)
+                citation_str = ", ".join(f"\\citepPS{{{c}}}" for c in sorted(citations))
+                latex_lines.append(f"\\;\;\\corner{{}} {method} & \maindatabar{{{count}}} & {citation_str} \\\\")
+
+        latex_lines.extend([
+            "\\bottomrule",
+            "\\end{tabular}",
+            "\\end{table*}"
+        ])
+
+        self.saveLatex("RQ1/challenges_table", "\n".join(latex_lines))
+    
         
 
 # =======================
