@@ -329,7 +329,7 @@ class Analysis:
             "\\footnotesize",
             "\\begin{tabular}{@{}p{5.0cm} l p{8cm}@{}}", 
             "\\toprule",
-            "\\textbf{Evaluation Category} & \\textbf{Count} & \\textbf{Studies} \\\\",
+            "\\textbf{Evaluation Category} & \\textbf{Cited In} & \\textbf{Studies} \\\\",
             "\\midrule"
         ]
         
