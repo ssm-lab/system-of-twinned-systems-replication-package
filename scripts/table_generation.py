@@ -1,10 +1,6 @@
 import argparse
 from collections import defaultdict
 import os
-import re
-import pandas as pd
-import matplotlib.pyplot as plt
-
 import pandas as pd
 import matplotlib.pyplot as plt
 

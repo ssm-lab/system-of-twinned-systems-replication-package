@@ -5,17 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator, FuncFormatter
 import plotly.graph_objects as go
-import matplotlib.gridspec as gridspec
 from matplotlib import font_manager
-import matplotlib.patheffects as patheffects
-
-import plotly.graph_objects as go
-import pandas as pd
-import numpy as np
-
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
 
 pd.set_option('future.no_silent_downcasting', True)
 data_path = "data/Data extraction sheet.xlsx"
@@ -172,11 +162,11 @@ class Analysis:
         total_responses = df.shape[0]
         percentages = counts_df.div(total_responses) * 100
         percentages.index = [col.replace("SoS: ", "") for col in percentages.index]
-        # Rename specific labels
+        
         rename_map = {
             "Dynamic Reconfiguration": "Reconfiguration",
             "Autonomy of Constituents": "Autonomy",
-            "Emergence of Behaviour": "Emergence"  # Spelling from your earlier plot
+            "Emergence of Behaviour": "Emergence"
         }
         percentages.rename(index=rename_map, inplace=True)
         
