@@ -6,6 +6,12 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator, FuncFormatter
 import plotly.graph_objects as go
 from matplotlib import font_manager
+from matplotlib.patches import Rectangle, FancyArrow
+
+__author__ = "Feyi Adesanya"
+__copyright__ = "Copyright 2024, Sustainable Systems and Methods Lab (SSM)"
+__license__ = "GPL-3.0"
+
 
 pd.set_option('future.no_silent_downcasting', True)
 data_path = "data/Data extraction sheet.xlsx"
@@ -16,6 +22,7 @@ class Analysis:
         1: "intentOfSoSDT", # RQ1
         2: "sosDimensions", # RQ4
         3: "trlVsContributionType", #RQ6
+        4: "dtSosQuadrants"
     }
     
     def __init__(self):
@@ -42,7 +49,49 @@ class Analysis:
         df = df.dropna(subset=columns_to_check)
         df = df[~(df[columns_to_check] == 0).any(axis=1)]
         return df
-      
+  
+  
+# =======================
+# Overall
+# =======================     
+    def dtSosQuadrants(self):
+        # Define quadrants
+        quadrants = {
+            "Digital Twins": (0, 1, 1, 1),
+            "?": (1, 1, 1, 1),
+            "Information \nSystems": (0, 0, 1, 1),
+            "System \nof Systems": (1, 0, 1, 1)
+        }
+        fig, ax = plt.subplots(figsize=(8, 5))
+        # Draw each box
+        for label, (x, y, w, h) in quadrants.items():
+            color = "#1E3A5F" if label == "?" else "#B0B0B0"
+            ax.add_patch(Rectangle((x, y), w, h, facecolor=color, edgecolor='white'))
+            ax.text(x + w / 2, y + h / 2, label, ha='center', va='center',
+                    fontsize=14, fontweight='medium', color="#ffffff")
+
+        # Draw x and y axis arrows
+        arrowprops = dict(width=0.02, head_width=0.1, head_length=0.1, color='black')
+
+        # x-axis
+        ax.add_patch(FancyArrow(0, -0.1, 2.1, 0, **arrowprops))
+        # y-axis
+        ax.add_patch(FancyArrow(-0.1, 0, 0, 2.1, **arrowprops))
+
+        # Axis labels
+        ax.text(1, -0.25, "Loose Systems Coordination", ha='center', va='top', fontsize=12)
+        ax.text(-0.3, 1, "Digital–Physical Convergence", ha='center', va='center',
+                fontsize=12, rotation=90)
+
+        # Formatting
+        ax.set_xlim(-0.5, 2.5)
+        ax.set_ylim(-0.5, 2.5)
+        ax.set_aspect("equal")
+        ax.axis("off")
+
+        # plt.tight_layout()
+        self.savefig("dtSosQuadrants")
+
       
 # =======================
 # RQ 1 
@@ -80,7 +129,7 @@ class Analysis:
             # marker_color='rgb(222,45,38)',
             marker_color="#f05a50",
             text=[f"{pivot_df.loc[domain, dt_col]:.0f}" for domain in y_categories],
-            textfont=dict(size=21, color="black"),
+            textfont=dict(size=21, color="black", weight="bold"),
             textposition='inside',
             hovertemplate='Domain: %{y}<br>' + dt_col + ': %{text}<extra></extra>',
         ))
@@ -94,7 +143,7 @@ class Analysis:
             # marker_color='rgb(49,130,189)',
             marker_color="#85d4ff",
             text=[f"{pivot_df.loc[domain, sos_col]:.0f}" for domain in y_categories],
-            textfont=dict(size=21, color="black"),
+            textfont=dict(size=21, color="black", weight="bold"),
             textposition='inside',
             hovertemplate='Domain: %{y}<br>' + sos_col + ': %{text}<extra></extra>',
         ))
@@ -183,8 +232,8 @@ class Analysis:
         y_pos = np.arange(len(percentages))
         
         ax.barh(y_pos, no_vals, left=left_no, color="#f05a50", label="No")
-        ax.barh(y_pos, partial_vals, left=left_partial, color="#f6a94d", label="Partial")
-        ax.barh(y_pos, yes_vals, left=left_yes, color="#5bab61", label="Yes")
+        ax.barh(y_pos, partial_vals, left=left_partial, color="#d8d8d8", label="Partial")
+        ax.barh(y_pos, yes_vals, left=left_yes, color="#85d4ff", label="Yes")
 
         # ax.set_facecolor("#f5f5f5")
         ax.set_facecolor("#ffffff")
@@ -203,9 +252,10 @@ class Analysis:
 
         ax.axvline(0, color='black', linewidth=0.5, linestyle=':')
 
-        left_lim = left_no.min() - 1.5
-        right_lim = (left_yes + yes_vals).max() + 1.5
-        ax.set_xlim(left_lim, right_lim)
+        # left_lim = left_no.min() - 1.5
+        # right_lim = (left_yes + yes_vals).max() + 1.5
+        # ax.set_xlim(left_lim, right_lim)
+        ax.set_xlim(-100, 100)
 
         ax.xaxis.set_major_locator(MultipleLocator(10))
         ax.xaxis.set_major_formatter(FuncFormatter(lambda x, pos: f"{abs(x):.0f}%"))
@@ -263,9 +313,9 @@ class Analysis:
 
         contribution_types = ["Conceptual", "Technical", "Case study"]
         colors = {
-            "Conceptual": "#85d4ff",
-            "Technical": "#f05a50",
-            "Case study": "#5bab61"
+            "Conceptual": "#f05a50",
+            "Technical": "#85d4ff",
+            "Case study": "#d8d8d8"
         }
 
         x = np.arange(len(pivot_df))
@@ -282,19 +332,31 @@ class Analysis:
                 height = bar.get_height()
                 if height > 0:
                     percent = (height / total_studies) * 100
+                    label = f"{int(height)} ({percent:.2f}%)"
+
                     offset = 5
-                    label = f"{int(height)} ({percent:.0f}%)"
                     ax.annotate(
                                 label,
                                 xy=(bar.get_x() + bar.get_width() / 2, height),
                                 xytext=(0, offset),
                                 textcoords="offset points",
                                 ha='center', va='bottom',
-                                fontsize=10.5, fontweight='medium')
+                                fontsize=10.5, fontweight='bold')
 
         ax.set_ylabel("Number of Papers", fontsize=14)
         ax.set_xticks(x)
-        ax.set_xticklabels(trl_order, rotation=15, fontsize=14)
+        
+        
+        # Total studies per TRL level
+        trl_totals = df_unique.groupby("TRL")["Citation Code"].nunique().reindex(trl_order).fillna(0).astype(int)
+        trl_percents = (trl_totals / total_studies * 100)
+
+        # Create new x-axis labels with totals and percentages
+        x_labels = [
+            f"{trl}\n{count} ({percent:.2f}%)"
+            for trl, count, percent in zip(trl_order, trl_totals, trl_percents)
+        ]
+        ax.set_xticklabels(x_labels, rotation=15, fontsize=14)
         ax.set_title("Contribution Types by TRL Level", fontsize=16, pad=15)
         ax.legend(title="Contribution Type", fontsize=12, title_fontsize=13)
         ax.set_ylim(0, pivot_df.values.max() + 10) 

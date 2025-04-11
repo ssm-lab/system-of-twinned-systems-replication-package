@@ -4,6 +4,10 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 
+__author__ = "Feyi Adesanya"
+__copyright__ = "Copyright 2024, Sustainable Systems and Methods Lab (SSM)"
+__license__ = "GPL-3.0"
+
 pd.set_option('future.no_silent_downcasting', True)
 data_path = "data/Data extraction sheet.xlsx"
 results_path = "./output/tables"
@@ -237,7 +241,15 @@ class Analysis:
             "\\midrule"
         ]
 
+
+        category_totals = []
         for category in category_list:
+            submethods = hierarchy.get(category, {})
+            all_citations = set().union(*(v["citations"] for v in submethods.values()))
+            category_totals.append((category, len(all_citations)))
+            
+        sorted_categories = sorted(category_totals, key=lambda x: x[1], reverse=True)
+        for category, total_cites in sorted_categories:
             submethods = hierarchy.get(category, {})
             if not submethods:
                 continue
@@ -245,23 +257,19 @@ class Analysis:
             above = {k: v for k, v in submethods.items() if v["count"] >= threshold}
             below = {k: v for k, v in submethods.items() if v["count"] < threshold}
 
-            # total_cites = sum(len(v["citations"]) for v in above.values()) + len(set().union(*[v["citations"] for v in below.values()]))
-            all_citations = set().union(*(v["citations"] for v in submethods.values()))
-            total_cites = len(all_citations)
-
             label_name = latex_friendly_names.get(category, category) if latex_friendly_names else category
             latex_lines.append(f"\\textbf{{{label_name}}} & \\textbf{{\\maindatabar{{{total_cites}}}}} & \\\\")
 
             for method, data in sorted(above.items(), key=lambda item: len(item[1]["citations"]), reverse=True):
                 count = len(data["citations"])
                 cites = ", ".join(f"\\citepPS{{{c}}}" for c in sorted(data["citations"]))
-                latex_lines.append(f"\\;\\;\\corner{{}} {method} & \\maindatabar{{{count}}} & {cites} \\\\")
+                latex_lines.append(f"\\;\\;\\corner{{}} {method} & \\subdatabar{{{count}}} & {cites} \\\\")
 
             if below:
                 all_below_cites = set().union(*[v["citations"] for v in below.values()])
                 count = len(all_below_cites)
                 cites = ", ".join(f"\\citepPS{{{c}}}" for c in sorted(all_below_cites))
-                latex_lines.append(f"\\;\\;\\corner{{}} \\textit{{Other}} & \\maindatabar{{{count}}} & {cites} \\\\")
+                latex_lines.append(f"\\;\\;\\corner{{}} \\textit{{Other}} & \\subdatabar{{{count}}} & {cites} \\\\")
 
         latex_lines += ["\\bottomrule", "\\end{tabular}", "\\end{table*}"]
         self.saveLatex(filename, "\n".join(latex_lines))
@@ -320,7 +328,7 @@ class Analysis:
             "\\begin{table*}[]",
             "\\centering",
             "\\setlength{\\tabcolsep}{1em}",
-            "\\caption{Challenges in studies}",
+            "\\caption{Challenges}",
             "\\label{tab:challenges-table}",
             "\\footnotesize",
             "\\begin{tabular}{@{}p{5.0cm} l p{8cm}@{}}", 
@@ -345,7 +353,7 @@ class Analysis:
             for method, citations in sorted(submethods.items(), key=lambda item: len(item[1]), reverse=True):
                 count = len(citations)
                 citation_str = ", ".join(f"\\citepPS{{{c}}}" for c in sorted(citations))
-                latex_lines.append(f"\\;\;\\corner{{}} {method} & \maindatabar{{{count}}} & {citation_str} \\\\")
+                latex_lines.append(f"\\;\;\\corner{{}} {method} & \subdatabar{{{count}}} & {citation_str} \\\\")
 
         latex_lines.extend([
             "\\bottomrule",
@@ -361,23 +369,23 @@ class Analysis:
 # RQ 2
 # =======================
     def topologyExtractionTable(self):        
-        self.generate_summary_table("Topology of DT/PT (Cleaned)", "Topologies in Studies", "topology-table", "p{2.5cm} l p{15cm}", "Topology", "rq2/topologyExtractionTable")
+        self.generate_summary_table("Topology of DT/PT (Cleaned)", "Topologies", "topology-table", "p{2.5cm} l p{15cm}", "Topology", "rq2/topologyExtractionTable")
 
     def spatialDistributionTable(self):
-        self.generate_summary_table("Spatial Distribution", "Spatially Distributed Topologies in Studies", "spatial-distribution-table", "p{3.5cm} l p{15cm}", "Distribution", "rq2/spatialDistributionTable")
+        self.generate_summary_table("Spatial Distribution", "Spatial Distribution", "spatial-distribution-table", "p{3.5cm} l p{15cm}", "Distribution", "rq2/spatialDistributionTable")
         
     def coordinationExtractionTable(self):
-        self.generate_summary_table("Coordination (Cleaned)", "Coordination in Studies", "coordination-table", "p{3.5cm} l p{15cm}", "Coordination", "rq2/coordinationExtractionTable")
+        self.generate_summary_table("Coordination (Cleaned)", "Coordination", "coordination-table", "p{3.5cm} l p{15cm}", "Coordination", "rq2/coordinationExtractionTable")
     
     def constituentUnitsTable(self):
-        self.generate_summary_table("Constituent unit (higher level aggregation)", "Constituent Units in Studies", "constituent-units-table", "p{5cm} l p{12.5cm}", "Constituent Unit", "rq2/constituentUnitsTable")
+        self.generate_summary_table("Constituent unit (higher level aggregation)", "Constituent Units", "constituent-units-table", "p{5cm} l p{12.5cm}", "Constituent Unit", "rq2/constituentUnitsTable")
 
     
 # =======================
 # RQ 3 
 # =======================
     def autonomyTable(self):
-        self.generate_summary_table("DT Class", "Levels of Autonomy in Studies", "autonomy-table", "p{5cm} l p{13.5cm}", "Autonomy", "rq3/autonomyTable")
+        self.generate_summary_table("DT Class", "Levels of Autonomy", "autonomy-table", "p{5cm} l p{13.5cm}", "Autonomy", "rq3/autonomyTable")
 
     def dtServicesTable(self):
         self.generate_delimiter_table(
@@ -403,7 +411,7 @@ class Analysis:
                 "Spatial and Visual Modelling",
                 "AI and Machine Learning"
             ],
-            caption="Modeling and Simulation Methods Used in Studies",
+            caption="Modeling and Simulation Formalisms",
             label="modeling-methods-structured-table",
             filename="rq3/hierarchicalModelingMethodsTable",
             column_label="Category",
@@ -416,10 +424,10 @@ class Analysis:
 # RQ 4 
 # =======================   
     def sosTypeTable(self):
-            self.generate_summary_table("Type of SoS", "SoS Type in Studies", "sos-type-table", "p{2.5cm} l p{14cm}", "SoS", "rq4/sosTypeTable")
+            self.generate_summary_table("Type of SoS", "SoS Type", "sos-type-table", "p{2.5cm} l p{14cm}", "SoS", "rq4/sosTypeTable")
 
     def emergenceTable(self):
-        self.generate_summary_table("Emergence", "Emergence Type in Studies", "emergence-type-table", "p{1.5cm} l p{15cm}", "Emergence", "rq4/emergenceTable")
+        self.generate_summary_table("Emergence", "Emergence Type", "emergence-type-table", "p{1.5cm} l p{15cm}", "Emergence", "rq4/emergenceTable")
             
     
 # =======================
@@ -433,7 +441,7 @@ class Analysis:
             "Explicitly Modelled",
             "Evaluated or Validated"
         ]
-        self.generate_summary_table("Security/Confidentiality Level", "Security in Studies", "security-table", "p{4cm} l p{13.5cm}", "Context", "rq5/securityTable", custom_order)
+        self.generate_summary_table("Security/Confidentiality Level", "Security", "security-table", "p{4cm} l p{13.5cm}", "Context", "rq5/securityTable", custom_order)
         
     def reliabilityTable(self):
         custom_order = [
@@ -443,7 +451,7 @@ class Analysis:
             "Explicitly Modelled",
             "Evaluated or Validated"
         ]
-        self.generate_summary_table("Reliability Level", "Reliability in Studies", "reliability-table", "p{4cm} l p{13.5cm}", "Context", "rq5/reliabilityTable", custom_order)
+        self.generate_summary_table("Reliability Level", "Reliability", "reliability-table", "p{4cm} l p{13.5cm}", "Context", "rq5/reliabilityTable", custom_order)
      
      
 # =======================
@@ -457,7 +465,7 @@ class Analysis:
             "Deployed Prototype",
             "Operational"
         ]
-        self.generate_summary_table("TRL", "TRL in Studies", "trl-table", "p{3.5cm} l p{15cm}", "TRL", "rq6/trlTable", custom_order)            
+        self.generate_summary_table("TRL", "TRL", "trl-table", "p{3.5cm} l p{15cm}", "TRL", "rq6/trlTable", custom_order)            
             
     def generate_structured_eval_table(self):
         df = self.df.copy()
@@ -489,7 +497,7 @@ class Analysis:
             "\\begin{table*}[]",
             "\\centering",
             "\\setlength{\\tabcolsep}{1em}",
-            "\\caption{Evaluation types and methods used in studies}",
+            "\\caption{Validation and Evaluation Approaches}",
             "\\label{tab:evaluation-structured-table}",
             "\\footnotesize",
             "\\begin{tabular}{@{}p{4.0cm} l p{10cm}@{}}", 
@@ -508,7 +516,7 @@ class Analysis:
             for method, citations in sorted(submethods.items(), key=lambda item: len(item[1]), reverse=True):
                 count = len(citations)
                 citation_str = ", ".join(f"\\citepPS{{{c}}}" for c in sorted(citations))
-                latex_lines.append(f"\\;\;\\corner{{}} {method} & \maindatabar{{{count}}} & {citation_str} \\\\")
+                latex_lines.append(f"\\;\;\\corner{{}} {method} & \subdatabar{{{count}}} & {citation_str} \\\\")
 
         latex_lines.extend([
             "\\bottomrule",
@@ -520,7 +528,7 @@ class Analysis:
 
         
     def contributionTypeTable(self):
-        self.generate_summary_table("Contribution type", "Contribution Type in Studies", "contribution-type-table", "p{2cm} l p{15.5cm}", "Contribution", "rq6/contributionTypeTable")
+        self.generate_summary_table("Contribution type", "Contribution Type", "contribution-type-table", "p{2cm} l p{15.5cm}", "Contribution", "rq6/contributionTypeTable")
                   
     def standardsTable(self, threshold=2):
         df = self.df.copy()
@@ -559,11 +567,11 @@ class Analysis:
                 }])
             ], ignore_index=True)
         
-        latex_table = self.generate_latex_table(summary_df, "Standards Used in Studies", "standards-table", "p{6.5cm} l p{10cm}", "Standard")
+        latex_table = self.generate_latex_table(summary_df, "Standards", "standards-table", "p{6.5cm} l p{10cm}", "Standard")
         self.saveLatex("rq6/standards", latex_table)
         
     def dtOrSoSRelated(self):
-        self.generate_summary_table("Do The Studies Use Standards in More of an SoS or DT context", "Context of Standards used in Studies", "dt-or-sos-related-table", "p{2cm} l p{15.5cm}", "Context", "rq6/dtOrSoSRelated")
+        self.generate_summary_table("Do The Studies Use Standards in More of an SoS or DT context", "Standards Usage Context (DT vs. SoS)", "dt-or-sos-related-table", "p{2cm} l p{15.5cm}", "Context", "rq6/dtOrSoSRelated")
         
         
 # =======================
@@ -576,7 +584,7 @@ class Analysis:
                 "Markup and Styling",
                 "Data Representation"
             ],
-            caption="Programming Langauges and Data Formats Methods Used in Studies",
+            caption="Programming Languages and Data Formats",
             label="programming-languages-structured-table",
             filename="rq7/hierarchicalProgrammingLanguagesTable",
             column_label="Category",
@@ -592,7 +600,7 @@ class Analysis:
                 "Data Management", "Geospatial & Visualization Technologies",
                 "Application Development & Web Technologies"
             ],
-            caption="Tools and Frameworks Used in Studies",
+            caption="Tools and Frameworks",
             label="frameworks-structured-table",
             filename="rq7/hierarchicalFrameworksTable",
             column_label="Category",

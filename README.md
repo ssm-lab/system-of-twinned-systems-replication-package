@@ -21,4 +21,5 @@
 ### Run analysis
 - For publication trends: execute `python .\scripts\publication_trends.py` from the root folder.
 - For the quality report: execute `python .\scripts\quality.py` from the root folder.
-- :heavy_exclamation_mark: TODO: add rest of the analysis scripts
+- For the result figures: execute `python .\scripts\figure_generation.py` from the root folder.
+- For the result tables: execute `python .\scripts\table_generation.py` from the root folder.
