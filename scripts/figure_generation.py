@@ -62,13 +62,13 @@ class Analysis:
             "Information \nSystems": (0, 0, 1, 1),
             "System \nof Systems": (1, 0, 1, 1)
         }
-        fig, ax = plt.subplots(figsize=(8, 5))
+        fig, ax = plt.subplots(figsize=(10, 8))
         # Draw each box
         for label, (x, y, w, h) in quadrants.items():
             color = "#1E3A5F" if label == "?" else "#B0B0B0"
             ax.add_patch(Rectangle((x, y), w, h, facecolor=color, edgecolor='white'))
             ax.text(x + w / 2, y + h / 2, label, ha='center', va='center',
-                    fontsize=14, fontweight='medium', color="#ffffff")
+                    fontsize=20, fontweight='medium', color="#ffffff")
 
         # Draw x and y axis arrows
         arrowprops = dict(width=0.02, head_width=0.1, head_length=0.1, color='black')
@@ -79,9 +79,9 @@ class Analysis:
         ax.add_patch(FancyArrow(-0.1, 0, 0, 2.1, **arrowprops))
 
         # Axis labels
-        ax.text(1, -0.25, "Loose Systems Coordination", ha='center', va='top', fontsize=12)
+        ax.text(1, -0.25, "Loose Systems Coordination", ha='center', va='top', fontsize=18)
         ax.text(-0.3, 1, "Digital–Physical Convergence", ha='center', va='center',
-                fontsize=12, rotation=90)
+                fontsize=18, rotation=90)
 
         # Formatting
         ax.set_xlim(-0.5, 2.5)
