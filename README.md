@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 ## About
-:heavy_exclamation_mark: TODO
+Systems of Twinned Systems (SoTS) bring together Digital Twins (DTs) and Systems of Systems (SoS) by combining multiple physical and digital systems in coordinated ways. This includes both networks of DTs working together and single DTs managing multiple systems. As real-world systems become more complex and connected, understanding how to design and manage SoTS is increasingly important. To support this, we systematically review the academic literature on SoTS, clarify key concepts, and identify common patterns, challenges, and future directions for researchers and practitioners.
 
 ## Contents
 
