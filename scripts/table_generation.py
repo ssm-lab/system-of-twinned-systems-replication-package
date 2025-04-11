@@ -73,7 +73,7 @@ class Analysis:
             \\begin{{tabular}}{{@{{}} {tabular_size} @{{}}}}
             \\toprule
             \\multicolumn{{1}}{{c}}{{\\textbf{{{first_column_name}}}}} & 
-            \\multicolumn{{1}}{{c}}{{\\textbf{{\\# of studies}}}} & 
+            \\multicolumn{{1}}{{c}}{{\\textbf{{Frequency}}}} & 
             \\multicolumn{{1}}{{c}}{{\\textbf{{Studies}}}} \\\\ 
             \\midrule
             """
@@ -233,7 +233,7 @@ class Analysis:
             "\\footnotesize",
             "\\begin{tabular}{@{}p{5.0cm} l p{9cm}@{}}", 
             "\\toprule",
-            f"\\textbf{{{column_label}}} & \\textbf{{Cited In}} & \\textbf{{Studies}} \\\\",
+            f"\\textbf{{{column_label}}} & \\textbf{{Frequency}} & \\textbf{{Studies}} \\\\",
             "\\midrule"
         ]
 
@@ -273,15 +273,15 @@ class Analysis:
 # RQ 1 
 # =======================          
     def motivationsTable(self):
-        self.generate_summary_table("Motivation (Clustered)", "Motivations in Studies", "motivations-table", "p{2.5cm} l p{15cm}", "Motivation", "rq1/motivations")
+        self.generate_summary_table("Motivation (Clustered)", "Motivations for Combining DT and SoS", "motivations-table", "p{2.5cm} l p{15cm}", "Motivation", "rq1/motivations")
         
     def intentsTable(self):
-        self.generate_summary_table("Intent", "Intents in Studies", "intents-table", "p{4cm} l p{13.5cm}", "Intent", "rq1/intentsTable")
+        self.generate_summary_table("Intent", "Intents of Combining DT and SoS", "intents-table", "p{4cm} l p{13.5cm}", "Intent", "rq1/intentsTable")
         
     def domainsTable(self):
         self.generate_other_cat_table(
             group_by_col="Domain (Aggregated)",
-            latex_caption="Domains of Studies",
+            latex_caption="Application Domains",
             latex_label="domains-table",
             latex_tabular_size="p{4cm} l p{13.5cm}",
             latex_first_column="Domain",
@@ -291,7 +291,7 @@ class Analysis:
         )
         
     def generate_challenges_table(self):
-        df = pd.read_excel(data_path, sheet_name="Challenges Seperated")
+        df = pd.read_excel(data_path, sheet_name="Challenges Separated")
         eval_col = "Challenges"
         expanded_col = "Further Categorization"
         citation_col = "Citation Code"
@@ -325,7 +325,7 @@ class Analysis:
             "\\footnotesize",
             "\\begin{tabular}{@{}p{5.0cm} l p{8cm}@{}}", 
             "\\toprule",
-            "\\textbf{Evaluation Category} & \\textbf{Cited In} & \\textbf{Studies} \\\\",
+            "\\textbf{Evaluation Category} & \\textbf{Frequency} & \\textbf{Studies} \\\\",
             "\\midrule"
         ]
         
@@ -494,7 +494,7 @@ class Analysis:
             "\\footnotesize",
             "\\begin{tabular}{@{}p{4.0cm} l p{10cm}@{}}", 
             "\\toprule",
-            "\\textbf{Evaluation Category} & \\textbf{Count} & \\textbf{Studies} \\\\",
+            "\\textbf{Evaluation Category} & \\textbf{Frequency} & \\textbf{Studies} \\\\",
             "\\midrule"
         ]
 
