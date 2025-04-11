@@ -2,6 +2,8 @@
 
 ### for the article _Systems of Twinned Systems: A Systematic Literature Review_.
 
+[![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+
 ## About
 :heavy_exclamation_mark: TODO
 
