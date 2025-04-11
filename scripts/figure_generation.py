@@ -15,7 +15,7 @@ class Analysis:
     observation_map = {
         1: "intentOfSoSDT", # RQ1
         2: "sosDimensions", # RQ4
-        3: "trlVsContributionType", #RQ5
+        3: "trlVsContributionType", #RQ6
     }
     
     def __init__(self):
@@ -235,9 +235,13 @@ class Analysis:
         ax.legend(fontsize=18, loc="lower right")
         self.savefig("sosDimensions", upper_folder="RQ4")
             
-            
 # =======================
-# RQ 5 
+# RQ 5
+# =======================   
+       
+       
+# =======================
+# RQ 6 
 # =======================
     def trlVsContributionType(self):
         df = self.df.copy()
@@ -297,9 +301,11 @@ class Analysis:
         ax.grid(axis='y', linestyle='--', alpha=0.5)
 
         plt.tight_layout()
-        self.savefig("trlVsContributionType", upper_folder="RQ5")
+        self.savefig("trlVsContributionType", upper_folder="rq6")
 
-
+# =======================
+# RQ 7
+# =======================   
 
                
 # =======================

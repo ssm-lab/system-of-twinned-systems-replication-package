@@ -273,10 +273,10 @@ class Analysis:
 # RQ 1 
 # =======================          
     def motivationsTable(self):
-        self.generate_summary_table("Motivation (Clustered)", "Motivations in Studies", "motivations-table", "p{2.5cm} l p{15cm}", "Motivation", "RQ1/motivations")
+        self.generate_summary_table("Motivation (Clustered)", "Motivations in Studies", "motivations-table", "p{2.5cm} l p{15cm}", "Motivation", "rq1/motivations")
         
     def intentsTable(self):
-        self.generate_summary_table("Intent", "Intents in Studies", "intents-table", "p{4cm} l p{13.5cm}", "Intent", "RQ1/intentsTable")
+        self.generate_summary_table("Intent", "Intents in Studies", "intents-table", "p{4cm} l p{13.5cm}", "Intent", "rq1/intentsTable")
         
     def domainsTable(self):
         self.generate_other_cat_table(
@@ -285,7 +285,7 @@ class Analysis:
             latex_label="domains-table",
             latex_tabular_size="p{4cm} l p{13.5cm}",
             latex_first_column="Domain",
-            latex_filename="RQ1/domainsTable",
+            latex_filename="rq1/domainsTable",
             delimiter=None,
             threshold=2,
         )
@@ -353,7 +353,7 @@ class Analysis:
             "\\end{table*}"
         ])
 
-        self.saveLatex("RQ1/challenges_table", "\n".join(latex_lines))
+        self.saveLatex("rq1/challenges_table", "\n".join(latex_lines))
     
         
 
@@ -361,63 +361,23 @@ class Analysis:
 # RQ 2
 # =======================
     def topologyExtractionTable(self):        
-        self.generate_summary_table("Topology of DT/PT (Cleaned)", "Topologies in Studies", "topology-table", "p{2.5cm} l p{15cm}", "Topology", "RQ2/topologyExtractionTable")
+        self.generate_summary_table("Topology of DT/PT (Cleaned)", "Topologies in Studies", "topology-table", "p{2.5cm} l p{15cm}", "Topology", "rq2/topologyExtractionTable")
 
     def spatialDistributionTable(self):
-        self.generate_summary_table("Spatial Distribution", "Spatially Distributed Topologies in Studies", "spatial-distribution-table", "p{3.5cm} l p{15cm}", "Distribution", "RQ2/spatialDistributionTable")
+        self.generate_summary_table("Spatial Distribution", "Spatially Distributed Topologies in Studies", "spatial-distribution-table", "p{3.5cm} l p{15cm}", "Distribution", "rq2/spatialDistributionTable")
         
     def coordinationExtractionTable(self):
-        self.generate_summary_table("Coordination (Cleaned)", "Coordination in Studies", "coordination-table", "p{3.5cm} l p{15cm}", "Coordination", "RQ2/coordinationExtractionTable")
+        self.generate_summary_table("Coordination (Cleaned)", "Coordination in Studies", "coordination-table", "p{3.5cm} l p{15cm}", "Coordination", "rq2/coordinationExtractionTable")
     
     def constituentUnitsTable(self):
-        self.generate_summary_table("Constituent unit (higher level aggregation)", "Constituent Units in Studies", "constituent-units-table", "p{5cm} l p{12.5cm}", "Constituent Unit", "RQ2/constituentUnitsTable")
-        
-    def programmingLangaugesTables(self, threshold=0):
-        self.generate_hierarchical_table(
-            category_list=[
-                "General Purpose",
-                "Markup and Styling",
-                "Data Representation"
-            ],
-            caption="Programming Langauges and Data Formats Methods Used in Studies",
-            label="programming-languages-structured-table",
-            filename="RQ2/hierarchicalProgrammingLanguagesTable",
-            column_label="Category",
-            threshold=threshold
-        )
-
-    
-    def generate_frameworks_table(self, threshold=2):
-        self.generate_hierarchical_table(
-            category_list=[
-                "Digital Twin & IoT", "Modeling & Simulation", "AI, Data Analytics & Machine Learning",
-                "Cloud, Edge, and DevOps", "Systems Engineering & Architecture",
-                "Data Management", "Geospatial & Visualization Technologies",
-                "Application Development & Web Technologies"
-            ],
-            caption="Tools and Frameworks Used in Studies",
-            label="frameworks-structured-table",
-            filename="RQ2/hierarchicalFrameworksTable",
-            column_label="Category",
-            threshold=threshold,
-            latex_friendly_names={
-                "Digital Twin & IoT": "Digital Twin \\& IoT",
-                "Modeling & Simulation": "Modeling \\& Simulation",
-                "AI, Data Analytics & Machine Learning": "AI, Data Analytics \\& ML",
-                "Cloud, Edge, and DevOps": "Cloud, Edge, and DevOps",
-                "Systems Engineering & Architecture": "Systems Eng. \\& Architecture",
-                "Data Management": "Data Management",
-                "Geospatial & Visualization Technologies": "Geospatial \\& Visualization",
-                "Application Development & Web Technologies": "App/Web Technologies",
-            }
-        )
+        self.generate_summary_table("Constituent unit (higher level aggregation)", "Constituent Units in Studies", "constituent-units-table", "p{5cm} l p{12.5cm}", "Constituent Unit", "rq2/constituentUnitsTable")
 
     
 # =======================
 # RQ 3 
 # =======================
     def autonomyTable(self):
-        self.generate_summary_table("DT Class", "Levels of Autonomy in Studies", "autonomy-table", "p{5cm} l p{13.5cm}", "Autonomy", "RQ3/autonomyTable")
+        self.generate_summary_table("DT Class", "Levels of Autonomy in Studies", "autonomy-table", "p{5cm} l p{13.5cm}", "Autonomy", "rq3/autonomyTable")
 
     def dtServicesTable(self):
         self.generate_delimiter_table(
@@ -426,7 +386,7 @@ class Analysis:
         label="dt-services-table", 
         tabular_size="p{3.5cm} l p{14cm}", 
         first_column_name="Service", 
-        save_location="RQ3/dtServicesTable"
+        save_location="rq3/dtServicesTable"
         )
 
 
@@ -445,7 +405,7 @@ class Analysis:
             ],
             caption="Modeling and Simulation Methods Used in Studies",
             label="modeling-methods-structured-table",
-            filename="RQ3/hierarchicalModelingMethodsTable",
+            filename="rq3/hierarchicalModelingMethodsTable",
             column_label="Category",
             threshold=threshold
         )
@@ -456,13 +416,38 @@ class Analysis:
 # RQ 4 
 # =======================   
     def sosTypeTable(self):
-            self.generate_summary_table("Type of SoS", "SoS Type in Studies", "sos-type-table", "p{2.5cm} l p{14cm}", "SoS", "RQ4/sosTypeTable")
+            self.generate_summary_table("Type of SoS", "SoS Type in Studies", "sos-type-table", "p{2.5cm} l p{14cm}", "SoS", "rq4/sosTypeTable")
 
     def emergenceTable(self):
-        self.generate_summary_table("Emergence", "Emergence Type in Studies", "emergence-type-table", "p{1.5cm} l p{15cm}", "Emergence", "RQ4/emergenceTable")
+        self.generate_summary_table("Emergence", "Emergence Type in Studies", "emergence-type-table", "p{1.5cm} l p{15cm}", "Emergence", "rq4/emergenceTable")
             
+    
 # =======================
-# RQ 5 
+# RQ 5
+# =======================
+    def securityTable(self):
+        custom_order = [
+            "Not Mentioned",
+            "Mentioned",
+            "Architecturally Addressed",
+            "Explicitly Modelled",
+            "Evaluated or Validated"
+        ]
+        self.generate_summary_table("Security/Confidentiality Level", "Security in Studies", "security-table", "p{4cm} l p{13.5cm}", "Context", "rq5/securityTable", custom_order)
+        
+    def reliabilityTable(self):
+        custom_order = [
+            "Not Mentioned",
+            "Mentioned",
+            "Architecturally Addressed",
+            "Explicitly Modelled",
+            "Evaluated or Validated"
+        ]
+        self.generate_summary_table("Reliability Level", "Reliability in Studies", "reliability-table", "p{4cm} l p{13.5cm}", "Context", "rq5/reliabilityTable", custom_order)
+     
+     
+# =======================
+# RQ 6
 # =======================
     def trlTable(self):
         custom_order = [
@@ -472,7 +457,7 @@ class Analysis:
             "Deployed Prototype",
             "Operational"
         ]
-        self.generate_summary_table("TRL", "TRL in Studies", "trl-table", "p{3.5cm} l p{15cm}", "TRL", "RQ5/trlTable", custom_order)            
+        self.generate_summary_table("TRL", "TRL in Studies", "trl-table", "p{3.5cm} l p{15cm}", "TRL", "rq6/trlTable", custom_order)            
             
     def generate_structured_eval_table(self):
         df = self.df.copy()
@@ -531,11 +516,11 @@ class Analysis:
             "\\end{table*}"
         ])
 
-        self.saveLatex("RQ5/hierarchicalEvaluationTable", "\n".join(latex_lines))
+        self.saveLatex("rq6/hierarchicalEvaluationTable", "\n".join(latex_lines))
 
         
     def contributionTypeTable(self):
-        self.generate_summary_table("Contribution type", "Contribution Type in Studies", "contribution-type-table", "p{2cm} l p{15.5cm}", "Contribution", "RQ5/contributionTypeTable")
+        self.generate_summary_table("Contribution type", "Contribution Type in Studies", "contribution-type-table", "p{2cm} l p{15.5cm}", "Contribution", "rq6/contributionTypeTable")
                   
     def standardsTable(self, threshold=2):
         df = self.df.copy()
@@ -575,35 +560,54 @@ class Analysis:
             ], ignore_index=True)
         
         latex_table = self.generate_latex_table(summary_df, "Standards Used in Studies", "standards-table", "p{6.5cm} l p{10cm}", "Standard")
-        self.saveLatex("RQ5/standards", latex_table)
+        self.saveLatex("rq6/standards", latex_table)
         
     def dtOrSoSRelated(self):
-        self.generate_summary_table("Do The Studies Use Standards in More of an SoS or DT context", "Context of Standards used in Studies", "dt-or-sos-related-table", "p{2cm} l p{15.5cm}", "Context", "RQ5/dtOrSoSRelated")
+        self.generate_summary_table("Do The Studies Use Standards in More of an SoS or DT context", "Context of Standards used in Studies", "dt-or-sos-related-table", "p{2cm} l p{15.5cm}", "Context", "rq6/dtOrSoSRelated")
         
-
-    
+        
 # =======================
 # RQ 7
-# =======================
-    def securityTable(self):
-        custom_order = [
-            "Not Mentioned",
-            "Mentioned",
-            "Architecturally Addressed",
-            "Explicitly Modelled",
-            "Evaluated or Validated"
-        ]
-        self.generate_summary_table("Security/Confidentiality Level", "Security in Studies", "security-table", "p{4cm} l p{13.5cm}", "Context", "RQ7/securityTable", custom_order)
-        
-    def reliabilityTable(self):
-        custom_order = [
-            "Not Mentioned",
-            "Mentioned",
-            "Architecturally Addressed",
-            "Explicitly Modelled",
-            "Evaluated or Validated"
-        ]
-        self.generate_summary_table("Reliability Level", "Reliability in Studies", "reliability-table", "p{4cm} l p{13.5cm}", "Context", "RQ7/reliabilityTable", custom_order)
+# =======================   
+    def programmingLangaugesTables(self, threshold=0):
+        self.generate_hierarchical_table(
+            category_list=[
+                "General Purpose",
+                "Markup and Styling",
+                "Data Representation"
+            ],
+            caption="Programming Langauges and Data Formats Methods Used in Studies",
+            label="programming-languages-structured-table",
+            filename="rq7/hierarchicalProgrammingLanguagesTable",
+            column_label="Category",
+            threshold=threshold
+        )
+
+    
+    def generate_frameworks_table(self, threshold=2):
+        self.generate_hierarchical_table(
+            category_list=[
+                "Digital Twin & IoT", "Modeling & Simulation", "AI, Data Analytics & Machine Learning",
+                "Cloud, Edge, and DevOps", "Systems Engineering & Architecture",
+                "Data Management", "Geospatial & Visualization Technologies",
+                "Application Development & Web Technologies"
+            ],
+            caption="Tools and Frameworks Used in Studies",
+            label="frameworks-structured-table",
+            filename="rq7/hierarchicalFrameworksTable",
+            column_label="Category",
+            threshold=threshold,
+            latex_friendly_names={
+                "Digital Twin & IoT": "Digital Twin \\& IoT",
+                "Modeling & Simulation": "Modeling \\& Simulation",
+                "AI, Data Analytics & Machine Learning": "AI, Data Analytics \\& ML",
+                "Cloud, Edge, and DevOps": "Cloud, Edge, and DevOps",
+                "Systems Engineering & Architecture": "Systems Eng. \\& Architecture",
+                "Data Management": "Data Management",
+                "Geospatial & Visualization Technologies": "Geospatial \\& Visualization",
+                "Application Development & Web Technologies": "App/Web Technologies",
+            }
+        )
 
                      
 # =======================
