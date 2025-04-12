@@ -331,9 +331,9 @@ class Analysis:
             "\\caption{Challenges}",
             "\\label{tab:challenges-table}",
             "\\footnotesize",
-            "\\begin{tabular}{@{}p{5.0cm} l p{8cm}@{}}", 
+            "\\begin{tabular}{@{}p{5.25cm} l p{8cm}@{}}", 
             "\\toprule",
-            "\\textbf{Evaluation Category} & \\textbf{Frequency} & \\textbf{Studies} \\\\",
+            "\\textbf{Challenge} & \\textbf{Frequency} & \\textbf{Studies} \\\\",
             "\\midrule"
         ]
         
