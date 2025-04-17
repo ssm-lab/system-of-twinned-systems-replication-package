@@ -7,6 +7,7 @@ from matplotlib.ticker import MultipleLocator, FuncFormatter
 import plotly.graph_objects as go
 from matplotlib import font_manager
 from matplotlib.patches import Rectangle, FancyArrow
+import json
 
 __author__ = "Feyi Adesanya"
 __copyright__ = "Copyright 2024, Sustainable Systems and Methods Lab (SSM)"
@@ -16,6 +17,10 @@ __license__ = "GPL-3.0"
 pd.set_option('future.no_silent_downcasting', True)
 data_path = "data/Data extraction sheet.xlsx"
 results_path = "./output/figures"
+
+# Get colour coding
+with open("data/colour_coding.json", "r") as f:
+    colour_coding = json.load(f)
 
 class Analysis:
     observation_map = {
@@ -65,7 +70,7 @@ class Analysis:
         fig, ax = plt.subplots(figsize=(10, 8))
         # Draw each box
         for label, (x, y, w, h) in quadrants.items():
-            color = "#1E3A5F" if label == "?" else "#B0B0B0"
+            color = colour_coding["blue"] if label == "?" else "#B0B0B0"
             ax.add_patch(Rectangle((x, y), w, h, facecolor=color, edgecolor='white'))
             ax.text(x + w / 2, y + h / 2, label, ha='center', va='center',
                     fontsize=20, fontweight='medium', color="#ffffff")
@@ -126,8 +131,7 @@ class Analysis:
             x=[pivot_df.loc[domain, "DT_mirrored"] for domain in y_categories],
             name=dt_col,
             orientation='h',
-            # marker_color='rgb(222,45,38)',
-            marker_color="#f05a50",
+            marker_color=colour_coding["red"],
             text=[f"{pivot_df.loc[domain, dt_col]:.0f}" for domain in y_categories],
             textfont=dict(size=21, color="black", weight="bold"),
             textposition='inside',
@@ -140,8 +144,7 @@ class Analysis:
             x=[pivot_df.loc[domain, sos_col] for domain in y_categories],
             name=sos_col,
             orientation='h',
-            # marker_color='rgb(49,130,189)',
-            marker_color="#85d4ff",
+            marker_color=colour_coding["blue"],
             text=[f"{pivot_df.loc[domain, sos_col]:.0f}" for domain in y_categories],
             textfont=dict(size=21, color="black", weight="bold"),
             textposition='inside',
@@ -177,7 +180,7 @@ class Analysis:
             font=dict(size=18),
             plot_bgcolor="white",
             legend=dict(
-                x=0.65, 
+                x=0.75, 
                 y=1,
                 font=dict(size=21, color='black'), 
                 bgcolor="white", 
@@ -231,11 +234,10 @@ class Analysis:
         plt.subplots_adjust(left=0.25, right=0.95) 
         y_pos = np.arange(len(percentages))
         
-        ax.barh(y_pos, no_vals, left=left_no, color="#f05a50", label="No")
-        ax.barh(y_pos, partial_vals, left=left_partial, color="#d8d8d8", label="Partial")
-        ax.barh(y_pos, yes_vals, left=left_yes, color="#85d4ff", label="Yes")
+        ax.barh(y_pos, no_vals, left=left_no, color=colour_coding["red"], label="No")
+        ax.barh(y_pos, partial_vals, left=left_partial, color=colour_coding["grey"], label="Partial")
+        ax.barh(y_pos, yes_vals, left=left_yes, color=colour_coding["blue"], label="Yes")
 
-        # ax.set_facecolor("#f5f5f5")
         ax.set_facecolor("#ffffff")
         ax.grid(axis="x", linestyle="--", linewidth=0.5, color="gray", alpha=0.6)
 
@@ -313,9 +315,9 @@ class Analysis:
 
         contribution_types = ["Conceptual", "Technical", "Case study"]
         colors = {
-            "Conceptual": "#f05a50",
-            "Technical": "#85d4ff",
-            "Case study": "#d8d8d8"
+            "Conceptual": colour_coding["red"],
+            "Technical": colour_coding["blue"],
+            "Case study": colour_coding["grey"],
         }
 
         x = np.arange(len(pivot_df))
