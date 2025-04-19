@@ -6,8 +6,9 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator, FuncFormatter
 import plotly.graph_objects as go
 from matplotlib import font_manager
-from matplotlib.patches import Rectangle, FancyArrow
 import json
+from upsetplot import UpSet, from_memberships
+import seaborn as sns
 
 __author__ = "Feyi Adesanya"
 __copyright__ = "Copyright 2024, Sustainable Systems and Methods Lab (SSM)"
@@ -27,7 +28,8 @@ class Analysis:
         1: "intentOfSoSDT", # RQ1
         2: "sosDimensions", # RQ4
         3: "trlVsContributionType", #RQ6
-        4: "dtSosQuadrants"
+        4: "dtServices", #RQ3
+        5: "topology_vs_coordination_bubble", #RQ2
     }
     
     def __init__(self):
@@ -55,49 +57,7 @@ class Analysis:
         df = df[~(df[columns_to_check] == 0).any(axis=1)]
         return df
   
-  
-# =======================
-# Overall
-# =======================     
-    def dtSosQuadrants(self):
-        # Define quadrants
-        quadrants = {
-            "Digital Twins": (0, 1, 1, 1),
-            "?": (1, 1, 1, 1),
-            "Information \nSystems": (0, 0, 1, 1),
-            "System \nof Systems": (1, 0, 1, 1)
-        }
-        fig, ax = plt.subplots(figsize=(10, 8))
-        # Draw each box
-        for label, (x, y, w, h) in quadrants.items():
-            color = colour_coding["blue"] if label == "?" else "#B0B0B0"
-            ax.add_patch(Rectangle((x, y), w, h, facecolor=color, edgecolor='white'))
-            ax.text(x + w / 2, y + h / 2, label, ha='center', va='center',
-                    fontsize=20, fontweight='medium', color="#ffffff")
-
-        # Draw x and y axis arrows
-        arrowprops = dict(width=0.02, head_width=0.1, head_length=0.1, color='black')
-
-        # x-axis
-        ax.add_patch(FancyArrow(0, -0.1, 2.1, 0, **arrowprops))
-        # y-axis
-        ax.add_patch(FancyArrow(-0.1, 0, 0, 2.1, **arrowprops))
-
-        # Axis labels
-        ax.text(1, -0.25, "Loose Systems Coordination", ha='center', va='top', fontsize=18)
-        ax.text(-0.3, 1, "Digital–Physical Convergence", ha='center', va='center',
-                fontsize=18, rotation=90)
-
-        # Formatting
-        ax.set_xlim(-0.5, 2.5)
-        ax.set_ylim(-0.5, 2.5)
-        ax.set_aspect("equal")
-        ax.axis("off")
-
-        # plt.tight_layout()
-        self.savefig("dtSosQuadrants")
-
-      
+        
 # =======================
 # RQ 1 
 # =======================  
@@ -109,16 +69,9 @@ class Analysis:
         dt_col, sos_col = pivot_df.columns[:2].tolist()
 
 
-        # Group 1: SoS-exclusive (DT==0 and SoS>0)
-        # Group 2: Common (DT>0 and SoS>0)
-        # Group 3: DT-exclusive (DT>0 and SoS==0)
-        pivot_df["order_group"] = 2
-        pivot_df.loc[(pivot_df[dt_col] == 0) & (pivot_df[sos_col] > 0), "order_group"] = 1
-        pivot_df.loc[(pivot_df[dt_col] > 0) & (pivot_df[sos_col] == 0), "order_group"] = 3
+        pivot_df["total"] = pivot_df[dt_col] + pivot_df[sos_col]
+        pivot_df = pivot_df.sort_values(by="total", ascending=True)
 
-
-        pivot_df["difference"] = pivot_df[sos_col] - pivot_df[dt_col]
-        pivot_df = pivot_df.sort_values(by=["order_group", "difference"], ascending=[True, False])
         y_categories = pivot_df.index.tolist()
 
         # Mirror the DT column for plotting (so that DT bars extend to the left)
@@ -132,9 +85,10 @@ class Analysis:
             name=dt_col,
             orientation='h',
             marker_color=colour_coding["red"],
-            text=[f"{pivot_df.loc[domain, dt_col]:.0f}" for domain in y_categories],
-            textfont=dict(size=21, color="black", weight="bold"),
-            textposition='inside',
+            textposition='outside',
+            insidetextanchor='start',
+            text=[f"{pivot_df.loc[domain, dt_col]:.0f}" if pivot_df.loc[domain, dt_col] > 0 else "" for domain in y_categories],
+            textfont=dict(size=20, color="black", weight="bold"),
             hovertemplate='Domain: %{y}<br>' + dt_col + ': %{text}<extra></extra>',
         ))
 
@@ -145,60 +99,159 @@ class Analysis:
             name=sos_col,
             orientation='h',
             marker_color=colour_coding["blue"],
-            text=[f"{pivot_df.loc[domain, sos_col]:.0f}" for domain in y_categories],
-            textfont=dict(size=21, color="black", weight="bold"),
-            textposition='inside',
+            textposition='outside',
+            insidetextanchor='start',
+            text=[f"{pivot_df.loc[domain, sos_col]:.0f}" if pivot_df.loc[domain, sos_col] > 0 else "" for domain in y_categories],
+            textfont=dict(size=20, color="black", weight="bold"),
             hovertemplate='Domain: %{y}<br>' + sos_col + ': %{text}<extra></extra>',
         ))
 
-        # Determine a common maximum for symmetry
-        max_count = max(pivot_df[dt_col].max(), pivot_df[sos_col].max())
-
+        max_count = int(np.ceil(max(pivot_df[dt_col].max(), pivot_df[sos_col].max()) / 10.0)) * 10
+        max_count = 25        
+        tick_vals = list(range(-max_count, max_count, 5))
+        
         fig.update_layout(
-            title=dict(
-                text="Intent by Domain",
-                x=0.5,  # centers the title horizontally
-                font=dict(color='black', size=28)
-            ),
             barmode='overlay',
             bargap=0.1,
             xaxis=dict(
-                tickvals=[-max_count, -max_count/2, 0, max_count/2, max_count],
-                ticktext=[str(int(max_count)), str(int(max_count/2)), "0", str(int(max_count/2)), str(int(max_count))],
-                title=dict(text="# of Studies", font=dict(color='black', size=24)),
+                tickvals=tick_vals,
+                ticktext =[str(abs(val)) for val in tick_vals],
+                range=[-30, 12],
+                title=dict(text="# of Studies", font=dict(color='black', size=22)),
                 showgrid=True,
-                tickfont=dict(color='black', size=21),
+                tickfont=dict(color='black', size=22),
             ),
             yaxis=dict(
-                title=dict(text="Domain", font=dict(color='black', size=24)),
+                title=dict(text="Domain", font=dict(color='black', size=22)),
                 automargin=True,
                 showgrid=True,
-                tickfont=dict(color='black', size=21),
+                tickfont=dict(color='black', size=22),
             ),
-            width=1400,
-            height=900,
-            font=dict(size=18),
+            width=850,
+            height=1200,
+            font=dict(size=20),
             plot_bgcolor="white",
-            legend=dict(
-                x=0.75, 
-                y=1,
-                font=dict(size=21, color='black'), 
-                bgcolor="white", 
-            )
+            margin=dict(l=120, r=120), 
+            showlegend=False,
         )
 
         file_path = os.path.join(results_path, "RQ1/intentOfSoSDT.png")
-        fig.write_image(file_path, scale=2)
+        fig.write_image(file_path, scale=4)
         
 # =======================
 # RQ 2
 # =======================
+    def topology_vs_coordination_bubble(self):
+        df = self.df.copy()
+        # Clean column names
+        topology_col = "Topology of DT/PT (Cleaned)"
+        coordination_col = "Coordination (Cleaned)"
+
+        # Drop rows with missing values in key columns
+        df_clean = df[[topology_col, coordination_col]].dropna()
+
+        # Count combinations
+        combo_counts = df_clean.groupby([topology_col, coordination_col]).size().reset_index(name='count')
+
+        # Set fixed order if desired
+        topology_order = ["Centralized", "Decentralized", "Federated", "Hierarchical"]
+        coordination_order = ["DT Orchestrated", "System Orchestrated", "Hybrid", "Peer-to-Peer (P2P)"]
+
+        # Convert to categorical with order to control axis layout
+        combo_counts[topology_col] = pd.Categorical(combo_counts[topology_col], categories=topology_order, ordered=True)
+        combo_counts[coordination_col] = pd.Categorical(combo_counts[coordination_col], categories=coordination_order, ordered=True)
+
+        # Create the plot
+        fig, ax = plt.subplots(figsize=(12, 8))
+        sns.set(style="whitegrid")
+
+        # Normalize bubble size
+        bubble_scale = 500
+        sizes = combo_counts['count'] * bubble_scale
+
+        scatter = ax.scatter(
+            x=combo_counts[topology_col],
+            y=combo_counts[coordination_col],
+            s=sizes,
+            alpha=0.6,
+            edgecolors='black',
+            linewidth=1.5,
+            color=colour_coding["blue"]
+        )
+
+        for _, row in combo_counts.iterrows():
+            ax.text(row[topology_col], row[coordination_col], str(row['count']),
+                    ha='center', va='center', fontsize=18, weight='bold', color='black')
+
+        # Axis settings
+        ax.set_xlabel("Topology", fontsize=23)
+        ax.set_ylabel("Coordination", fontsize=23)
+        ax.set_title("Topology vs Coordination", fontsize=23, pad=20)
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
         
+        # Ticks and grid
+        ax.set_xticks(np.arange(len(topology_order)))
+        ax.set_xticklabels(topology_order, fontsize=22)
+        ax.set_yticks(np.arange(len(coordination_order)))
+        ax.set_yticklabels(coordination_order, fontsize=22)
+        ax.grid(True, linestyle=':', linewidth=0.7, color='gray', axis='both')
+
+        # Add extra padding to avoid clipping
+        ax.set_xlim(-0.5, len(topology_order)-0.5)
+        ax.set_ylim(-0.5, len(coordination_order)-0.5)
+        
+        ax.set_facecolor("white")
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+
+        self.savefig("topology_vs_coordination_bubble", upper_folder="RQ2")
 
 # =======================
 # RQ 3 
 # =======================
-    
+    def dtServices(self):
+        df = self.df.copy()
+        services_column = "Services (Cleaned)"
+
+        df_services = df[[services_column]]
+
+        combo_counts = {}
+        
+        for entry in df_services[services_column]:
+            items = entry.split(",")
+            cleaned = {str(i).strip() for i in items if i.strip()}
+            sorted_combo = tuple(sorted(cleaned))
+           
+            if sorted_combo in combo_counts:
+                combo_counts[sorted_combo] += 1
+            else:
+                combo_counts[sorted_combo] = 1
+
+        upset_data = from_memberships(
+        memberships=list(combo_counts.keys()),
+        data=list(combo_counts.values())
+        )
+
+        plt.figure(figsize=(14, 6))
+        plt.rcParams.update({
+            "font.size": 18,
+            "axes.titlesize": 16,
+            "axes.labelsize": 15,
+            "xtick.labelsize": 15,
+            "ytick.labelsize": 15,
+            "legend.fontsize": 16
+        })
+        UpSet(upset_data, show_counts=True, sort_by='cardinality').plot()
+        plt.suptitle("Combinations of DT Services Across Studies", fontsize=20)
+        
+        for text in plt.gcf().findobj(match=plt.Text):
+            if text.get_text().isdigit():
+                text.set_fontsize(13)
+
+
+        self.savefig("dtServices", upper_folder="RQ3")
+        plt.close()
         
 # =======================
 # RQ 4 
@@ -283,8 +336,6 @@ class Analysis:
                         f"{yes_vals.iloc[i]:.2f}%", va='center', ha=ha,
                         color='black', fontsize=24, weight=550)
 
-
-        ax.legend(fontsize=18, loc="lower right")
         self.savefig("sosDimensions", upper_folder="RQ4")
             
 # =======================
@@ -343,7 +394,7 @@ class Analysis:
                                 xytext=(0, offset),
                                 textcoords="offset points",
                                 ha='center', va='bottom',
-                                fontsize=10.5, fontweight='bold')
+                                fontsize=7, fontweight='bold')
 
         ax.set_ylabel("Number of Papers", fontsize=14)
         ax.set_xticks(x)
@@ -360,7 +411,7 @@ class Analysis:
         ]
         ax.set_xticklabels(x_labels, rotation=15, fontsize=14)
         ax.set_title("Contribution Types by TRL Level", fontsize=16, pad=15)
-        ax.legend(title="Contribution Type", fontsize=12, title_fontsize=13)
+        # ax.legend(title="Contribution Type", fontsize=12, title_fontsize=13)
         ax.set_ylim(0, pivot_df.values.max() + 10) 
         ax.grid(axis='y', linestyle='--', alpha=0.5)
 

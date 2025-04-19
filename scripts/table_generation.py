@@ -427,7 +427,7 @@ class Analysis:
             self.generate_summary_table("Type of SoS", "SoS Type", "sos-type-table", "p{2.5cm} l p{14cm}", "SoS", "rq4/sosTypeTable")
 
     def emergenceTable(self):
-        self.generate_summary_table("Emergence", "Emergence Type", "emergence-type-table", "p{1.5cm} l p{15cm}", "Emergence", "rq4/emergenceTable")
+        self.generate_summary_table("Emergence", "Emergence Type", "emergence-type-table", "p{2.5cm} l p{14cm}", "Emergence", "rq4/emergenceTable", ["Not Addressed", "Simple", "Weak", "Strong"])
             
     
 # =======================
