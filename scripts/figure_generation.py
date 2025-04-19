@@ -233,13 +233,13 @@ class Analysis:
         data=list(combo_counts.values())
         )
 
-        plt.figure(figsize=(14, 6))
+        plt.figure(figsize=(12, 9))
         plt.rcParams.update({
             "font.size": 18,
-            "axes.titlesize": 16,
-            "axes.labelsize": 15,
-            "xtick.labelsize": 15,
-            "ytick.labelsize": 15,
+            "axes.titlesize": 19,
+            "axes.labelsize": 18,
+            "xtick.labelsize": 18,
+            "ytick.labelsize": 18,
             "legend.fontsize": 16
         })
         UpSet(upset_data, show_counts=True, sort_by='cardinality').plot()
@@ -247,7 +247,7 @@ class Analysis:
         
         for text in plt.gcf().findobj(match=plt.Text):
             if text.get_text().isdigit():
-                text.set_fontsize(13)
+                text.set_fontsize(18)
 
 
         self.savefig("dtServices", upper_folder="RQ3")
