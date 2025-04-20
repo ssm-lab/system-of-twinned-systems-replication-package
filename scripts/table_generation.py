@@ -2,7 +2,6 @@ import argparse
 from collections import defaultdict
 import os
 import pandas as pd
-import matplotlib.pyplot as plt
 
 __author__ = "Feyi Adesanya"
 __copyright__ = "Copyright 2024, Sustainable Systems and Methods Lab (SSM)"
@@ -640,14 +639,12 @@ class Analysis:
         print("Running all observations...\n")
         for obs_id, func_name in self.observation_map.items():
             print(f"Running observation {obs_id}: {func_name} ...")
-            plt.clf()
             getattr(self, func_name)()
 
     def run_one(self, observation_id):
         if observation_id in self.observation_map:
             func_name = self.observation_map[observation_id]
             print(f"Running observation {observation_id}: {func_name} ...")
-            plt.clf()
             getattr(self, func_name)()
         else:
             print(f"Error: Observation {observation_id} is not valid. Choose from {list(self.observation_map.keys())}.")
