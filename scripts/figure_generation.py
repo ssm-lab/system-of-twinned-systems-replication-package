@@ -1,5 +1,6 @@
 import argparse
 import os
+import warnings
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -15,7 +16,8 @@ __copyright__ = "Copyright 2024, Sustainable Systems and Methods Lab (SSM)"
 __license__ = "GPL-3.0"
 
 
-pd.set_option('future.no_silent_downcasting', True)
+warnings.filterwarnings("ignore", category=FutureWarning, module="upsetplot.plotting")
+warnings.filterwarnings("ignore", category=FutureWarning, module="upsetplot.data")
 data_path = "data/Data extraction sheet.xlsx"
 results_path = "./output/figures"
 
@@ -64,7 +66,7 @@ class Analysis:
         
     def intentOfSoSDT(self):
         df = self.df.copy()
-        intent_domain_counts = df.groupby(["Intent", "Domain (Aggregated)"]).size().reset_index(name="Count")
+        intent_domain_counts = df.groupby(["Intent", "Domain (Aggregated)"], observed=True).size().reset_index(name="Count")
         pivot_df = intent_domain_counts.pivot(index="Domain (Aggregated)", columns="Intent", values="Count").fillna(0)
         dt_col, sos_col = pivot_df.columns[:2].tolist()
 
@@ -151,7 +153,7 @@ class Analysis:
         df_clean = df[[topology_col, coordination_col]].dropna()
 
         # Count combinations
-        combo_counts = df_clean.groupby([topology_col, coordination_col]).size().reset_index(name='count')
+        combo_counts = df_clean.groupby([topology_col, coordination_col], observed=True).size().reset_index(name='count')
 
         # Set fixed order if desired
         topology_order = ["Centralized", "Decentralized", "Federated", "Hierarchical"]
@@ -205,6 +207,7 @@ class Analysis:
         for spine in ax.spines.values():
             spine.set_visible(False)
 
+        plt.tight_layout()
         self.savefig("topology_vs_coordination_bubble", upper_folder="RQ2")
 
 # =======================
@@ -336,6 +339,7 @@ class Analysis:
                         f"{yes_vals.iloc[i]:.2f}%", va='center', ha=ha,
                         color='black', fontsize=24, weight=550)
 
+        plt.tight_layout()
         self.savefig("sosDimensions", upper_folder="RQ4")
             
 # =======================
@@ -401,7 +405,7 @@ class Analysis:
         
         
         # Total studies per TRL level
-        trl_totals = df_unique.groupby("TRL")["Citation Code"].nunique().reindex(trl_order).fillna(0).astype(int)
+        trl_totals = df_unique.groupby("TRL", observed=True)["Citation Code"].nunique().reindex(trl_order).fillna(0).astype(int)
         trl_percents = (trl_totals / total_studies * 100)
 
         # Create new x-axis labels with totals and percentages
@@ -411,7 +415,6 @@ class Analysis:
         ]
         ax.set_xticklabels(x_labels, rotation=15, fontsize=14)
         ax.set_title("Contribution Types by TRL Level", fontsize=16, pad=15)
-        # ax.legend(title="Contribution Type", fontsize=12, title_fontsize=13)
         ax.set_ylim(0, pivot_df.values.max() + 10) 
         ax.grid(axis='y', linestyle='--', alpha=0.5)
 
@@ -440,7 +443,6 @@ class Analysis:
             if existing_file.startswith(filename):
                 os.remove(os.path.join(folder_path, existing_file))
 
-        plt.gcf().tight_layout()
         plt.savefig(file_path, dpi=900)  
         plt.close()
         
