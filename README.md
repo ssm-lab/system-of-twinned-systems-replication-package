@@ -15,6 +15,10 @@ Systems of Twinned Systems (SoTS) bring together Digital Twins (DTs) and Systems
 
 ## How to use
 
+### Set up virtual environment
+- Create virtual environment: `python -m venv venv`
+- Activate environment: `venv\Scripts\activate`
+
 ### Install requirements
 - Install requirements by executing `pip install -r requirements.txt` from the root folder.
 
