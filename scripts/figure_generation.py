@@ -90,7 +90,7 @@ class Analysis:
             textposition='outside',
             insidetextanchor='start',
             text=[f"{pivot_df.loc[domain, dt_col]:.0f}" if pivot_df.loc[domain, dt_col] > 0 else "" for domain in y_categories],
-            textfont=dict(size=20, color="black", weight="bold"),
+            textfont=dict(size=20, color="black"),
             hovertemplate='Domain: %{y}<br>' + dt_col + ': %{text}<extra></extra>',
         ))
 
@@ -104,7 +104,7 @@ class Analysis:
             textposition='outside',
             insidetextanchor='start',
             text=[f"{pivot_df.loc[domain, sos_col]:.0f}" if pivot_df.loc[domain, sos_col] > 0 else "" for domain in y_categories],
-            textfont=dict(size=20, color="black", weight="bold"),
+            textfont=dict(size=20, color="black"),
             hovertemplate='Domain: %{y}<br>' + sos_col + ': %{text}<extra></extra>',
         ))
 
@@ -118,19 +118,18 @@ class Analysis:
             xaxis=dict(
                 tickvals=tick_vals,
                 ticktext =[str(abs(val)) for val in tick_vals],
-                range=[-30, 12],
+                range=[-30, 10],
                 title=dict(text="# of Studies", font=dict(color='black', size=22)),
                 showgrid=True,
                 tickfont=dict(color='black', size=22),
             ),
             yaxis=dict(
-                title=dict(text="Domain", font=dict(color='black', size=22)),
                 automargin=True,
                 showgrid=True,
                 tickfont=dict(color='black', size=22),
             ),
             width=850,
-            height=1200,
+            height=700,
             font=dict(size=20),
             plot_bgcolor="white",
             margin=dict(l=120, r=120), 
@@ -183,7 +182,7 @@ class Analysis:
 
         for _, row in combo_counts.iterrows():
             ax.text(row[topology_col], row[coordination_col], str(row['count']),
-                    ha='center', va='center', fontsize=18, weight='bold', color='black')
+                    ha='center', va='center', fontsize=18, color='black')
 
         # Axis settings
         ax.set_xlabel("Topology", fontsize=23)
@@ -295,11 +294,8 @@ class Analysis:
         ax.barh(y_pos, yes_vals, left=left_yes, color=colour_coding["blue"], label="Yes")
 
         ax.set_facecolor("#ffffff")
-        ax.grid(axis="x", linestyle="--", linewidth=0.5, color="gray", alpha=0.6)
 
         ax.set_yticks(y_pos)
-        # ax.set_yticklabels(percentages.index, fontsize=40)
-        # ax.tick_params(axis='y', labelsize=40, pad=20) 
         font_prop = font_manager.FontProperties(size=32)
         ax.set_yticklabels(percentages.index, fontproperties=font_prop)
         ax.tick_params(axis='y', pad=30)
@@ -310,9 +306,6 @@ class Analysis:
 
         ax.axvline(0, color='black', linewidth=0.5, linestyle=':')
 
-        # left_lim = left_no.min() - 1.5
-        # right_lim = (left_yes + yes_vals).max() + 1.5
-        # ax.set_xlim(left_lim, right_lim)
         ax.set_xlim(-100, 100)
 
         ax.xaxis.set_major_locator(MultipleLocator(10))
@@ -398,7 +391,7 @@ class Analysis:
                                 xytext=(0, offset),
                                 textcoords="offset points",
                                 ha='center', va='bottom',
-                                fontsize=7, fontweight='bold')
+                                fontsize=7)
 
         ax.set_ylabel("Number of Papers", fontsize=14)
         ax.set_xticks(x)

@@ -21,7 +21,7 @@ class Analysis:
         6: "constituentUnitsTable", #RQ2
         7: "autonomyTable", #RQ3
         9: "emergenceTable", #RQ4
-        10: "sosTypeTable", #RQ4
+        10: "sots_classificationTable", #RQ2
         11: "trlTable", #RQ5
         13: "standardsTable", #RQ5
         14: "contributionTypeTable", #RQ5
@@ -377,7 +377,9 @@ class Analysis:
     
     def constituentUnitsTable(self):
         self.generate_summary_table("Constituent unit (higher level aggregation)", "Constituent Units", "constituent-units-table", "p{5cm} l p{12.5cm}", "Constituent Unit", "rq2/constituentUnitsTable")
-
+        
+    def sots_classificationTable(self):
+        self.generate_summary_table("SoTS Classification", "SoTS Type", "sots-type-table", "p{2.5cm} l p{14cm}", "SoS", "rq2/sotsTypeTable")
     
 # =======================
 # RQ 3 
