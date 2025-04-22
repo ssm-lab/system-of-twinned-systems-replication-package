@@ -184,6 +184,7 @@ class Analysis:
             "Emergence of Behaviour": "Emergence"
         }
         percentages.rename(index=rename_map, inplace=True)
+        percentages = percentages.sort_values(by="No", ascending=False)
         
         no_vals = percentages["No"]
         partial_vals = percentages["Partial"]
