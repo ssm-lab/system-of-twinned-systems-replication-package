@@ -5,11 +5,9 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator, FuncFormatter
-import plotly.graph_objects as go
 from matplotlib import font_manager
 import json
 from upsetplot import UpSet, from_memberships
-import seaborn as sns
 
 __author__ = "Feyi Adesanya"
 __copyright__ = "Copyright 2024, Sustainable Systems and Methods Lab (SSM)"
@@ -31,7 +29,6 @@ class Analysis:
         2: "sosDimensions", # RQ4
         3: "trlVsContributionType", #RQ6
         4: "dtServices", #RQ3
-        5: "topology_vs_coordination_bubble", #RQ2
     }
     
     def __init__(self):
@@ -66,148 +63,59 @@ class Analysis:
         
     def intentOfSoSDT(self):
         df = self.df.copy()
-        intent_domain_counts = df.groupby(["Intent", "Domain (Aggregated)"], observed=True).size().reset_index(name="Count")
-        pivot_df = intent_domain_counts.pivot(index="Domain (Aggregated)", columns="Intent", values="Count").fillna(0)
+        services_column = "Domain (Aggregated)"
+        intent_col = "Intent"
+
+        intent_domain_counts = df.groupby([intent_col, services_column], observed=True).size().reset_index(name="Count")
+        pivot_df = intent_domain_counts.pivot(index=services_column, columns=intent_col, values="Count").fillna(0)
+
         dt_col, sos_col = pivot_df.columns[:2].tolist()
-
-
         pivot_df["total"] = pivot_df[dt_col] + pivot_df[sos_col]
         pivot_df = pivot_df.sort_values(by="total", ascending=True)
 
         y_categories = pivot_df.index.tolist()
+        y_pos = np.arange(len(y_categories))
 
-        # Mirror the DT column for plotting (so that DT bars extend to the left)
-        pivot_df["DT_mirrored"] = -pivot_df[dt_col]
+        fig, ax = plt.subplots(figsize=(10, 8))
 
-        fig = go.Figure()
-        # Trace for DT (mirrored to the left)
-        fig.add_trace(go.Bar(
-            y=y_categories,
-            x=[pivot_df.loc[domain, "DT_mirrored"] for domain in y_categories],
-            name=dt_col,
-            orientation='h',
-            marker_color=colour_coding["red"],
-            textposition='outside',
-            insidetextanchor='start',
-            text=[f"{pivot_df.loc[domain, dt_col]:.0f}" if pivot_df.loc[domain, dt_col] > 0 else "" for domain in y_categories],
-            textfont=dict(size=20, color="black"),
-            hovertemplate='Domain: %{y}<br>' + dt_col + ': %{text}<extra></extra>',
-        ))
+        # Bar values
+        dt_values = -pivot_df[dt_col].values  # Negative for mirrored effect
+        sos_values = pivot_df[sos_col].values
 
-        # Trace for SoS (to the right)
-        fig.add_trace(go.Bar(
-            y=y_categories,
-            x=[pivot_df.loc[domain, sos_col] for domain in y_categories],
-            name=sos_col,
-            orientation='h',
-            marker_color=colour_coding["blue"],
-            textposition='outside',
-            insidetextanchor='start',
-            text=[f"{pivot_df.loc[domain, sos_col]:.0f}" if pivot_df.loc[domain, sos_col] > 0 else "" for domain in y_categories],
-            textfont=dict(size=20, color="black"),
-            hovertemplate='Domain: %{y}<br>' + sos_col + ': %{text}<extra></extra>',
-        ))
+        ax.barh(y_pos, dt_values, color=colour_coding["red"], label=dt_col)
+        ax.barh(y_pos, sos_values, color=colour_coding["blue"], label=sos_col)
 
-        max_count = int(np.ceil(max(pivot_df[dt_col].max(), pivot_df[sos_col].max()) / 10.0)) * 10
-        max_count = 25        
-        tick_vals = list(range(-max_count, max_count, 5))
+        for i, (dt, sos) in enumerate(zip(dt_values, sos_values)):
+            if dt != 0:
+                ax.text(dt - 0.5, i, f"{-int(dt)}", va='center', ha='right', fontsize=21)
+            if sos != 0:
+                ax.text(sos + 0.5, i, f"{int(sos)}", va='center', ha='left', fontsize=21)
+
+        ax.set_yticks(y_pos)
+        ax.set_yticklabels(y_categories, fontsize=22)
+        ax.set_xlabel("# of Studies", fontsize=22)
+        ax.set_xlim(-30, 10)
+        ax.set_xticks(range(-30, 15, 5))
+        ax.set_xticklabels([str(abs(x)) for x in range(-30, 15, 5)], fontsize=22)
         
-        fig.update_layout(
-            barmode='overlay',
-            bargap=0.1,
-            xaxis=dict(
-                tickvals=tick_vals,
-                ticktext =[str(abs(val)) for val in tick_vals],
-                range=[-30, 10],
-                title=dict(text="# of Studies", font=dict(color='black', size=22)),
-                showgrid=True,
-                tickfont=dict(color='black', size=22),
-            ),
-            yaxis=dict(
-                automargin=True,
-                showgrid=True,
-                tickfont=dict(color='black', size=22),
-            ),
-            width=850,
-            height=700,
-            font=dict(size=20),
-            plot_bgcolor="white",
-            margin=dict(l=120, r=120), 
-            showlegend=False,
-        )
+        ax.tick_params(axis='y', which='both', length=0, labelsize=22) 
+        # ax.grid(True, axis='x', linestyle='--', linewidth=0.5)
+        # ax.axvline(0, color='black', linewidth=1)
+        ax.grid(False)
+        for spine in ax.spines.values():
+            spine.set_visible(False)
 
-        file_path = os.path.join(results_path, "RQ1/intentOfSoSDT.png")
-        fig.write_image(file_path, scale=4)
+        # ax.set_title("Intent of SoTS vs Domain", fontsize=18, pad=15)
+        plt.tight_layout()
+
+        # Save
+        self.savefig("intentOfSoSDT", upper_folder="RQ1")
+        plt.close()
         
 # =======================
 # RQ 2
 # =======================
-    def topology_vs_coordination_bubble(self):
-        df = self.df.copy()
-        # Clean column names
-        topology_col = "Topology of DT/PT (Cleaned)"
-        coordination_col = "Coordination (Cleaned)"
 
-        # Drop rows with missing values in key columns
-        df_clean = df[[topology_col, coordination_col]].dropna()
-
-        # Count combinations
-        combo_counts = df_clean.groupby([topology_col, coordination_col], observed=True).size().reset_index(name='count')
-
-        # Set fixed order if desired
-        topology_order = ["Centralized", "Decentralized", "Federated", "Hierarchical"]
-        coordination_order = ["DT Orchestrated", "System Orchestrated", "Hybrid", "Peer-to-Peer (P2P)"]
-
-        # Convert to categorical with order to control axis layout
-        combo_counts[topology_col] = pd.Categorical(combo_counts[topology_col], categories=topology_order, ordered=True)
-        combo_counts[coordination_col] = pd.Categorical(combo_counts[coordination_col], categories=coordination_order, ordered=True)
-
-        # Create the plot
-        fig, ax = plt.subplots(figsize=(12, 8))
-        sns.set(style="whitegrid")
-
-        # Normalize bubble size
-        bubble_scale = 500
-        sizes = combo_counts['count'] * bubble_scale
-
-        scatter = ax.scatter(
-            x=combo_counts[topology_col],
-            y=combo_counts[coordination_col],
-            s=sizes,
-            alpha=0.6,
-            edgecolors='black',
-            linewidth=1.5,
-            color=colour_coding["blue"]
-        )
-
-        for _, row in combo_counts.iterrows():
-            ax.text(row[topology_col], row[coordination_col], str(row['count']),
-                    ha='center', va='center', fontsize=18, color='black')
-
-        # Axis settings
-        ax.set_xlabel("Topology", fontsize=23)
-        ax.set_ylabel("Coordination", fontsize=23)
-        ax.set_title("Topology vs Coordination", fontsize=23, pad=20)
-        plt.xticks(fontsize=14)
-        plt.yticks(fontsize=14)
-        
-        # Ticks and grid
-        ax.set_xticks(np.arange(len(topology_order)))
-        ax.set_xticklabels(topology_order, fontsize=22)
-        ax.set_yticks(np.arange(len(coordination_order)))
-        ax.set_yticklabels(coordination_order, fontsize=22)
-        ax.grid(True, linestyle=':', linewidth=0.7, color='gray', axis='both')
-
-        # Add extra padding to avoid clipping
-        ax.set_xlim(-0.5, len(topology_order)-0.5)
-        ax.set_ylim(-0.5, len(coordination_order)-0.5)
-        
-        ax.set_facecolor("white")
-        for spine in ax.spines.values():
-            spine.set_visible(False)
-
-        plt.tight_layout()
-        self.savefig("topology_vs_coordination_bubble", upper_folder="RQ2")
 
 # =======================
 # RQ 3 
