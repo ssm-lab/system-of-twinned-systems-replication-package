@@ -217,7 +217,7 @@ class Analysis:
 
         ax.set_xlim(-100, 100)
 
-        ax.xaxis.set_major_locator(MultipleLocator(10))
+        ax.xaxis.set_major_locator(MultipleLocator(20))
         ax.xaxis.set_major_formatter(FuncFormatter(lambda x, pos: f"{abs(x):.0f}%"))
 
         min_width = 5
