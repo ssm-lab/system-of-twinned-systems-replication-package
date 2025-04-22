@@ -14,6 +14,7 @@ Systems of Twinned Systems (SoTS) bring together Digital Twins (DTs) and Systems
 - `/output` - Results of the analyses as used in the article
 
 ## How to use
+To avoid dependency conflicts and ensure a clean environment, it is recommended to run this package inside a Python virtual environment
 
 ### Set up virtual environment
 - Create virtual environment: `python -m venv venv`
