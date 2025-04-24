@@ -290,8 +290,7 @@ class Analysis:
             for bar in bars:
                 height = bar.get_height()
                 if height > 0:
-                    percent = (height / total_studies) * 100
-                    label = f"{int(height)} ({percent:.2f}%)"
+                    label = f"{int(height)}"
 
                     offset = 5
                     ax.annotate(
@@ -300,22 +299,20 @@ class Analysis:
                                 xytext=(0, offset),
                                 textcoords="offset points",
                                 ha='center', va='bottom',
-                                fontsize=7)
+                                fontsize=12)
 
-        ax.set_ylabel("Number of Papers", fontsize=14)
+        ax.set_ylabel("Number of Papers", fontsize=13)
+        ax.tick_params(axis='y', labelsize=13)
         ax.set_xticks(x)
         
-        
-        # Total studies per TRL level
         trl_totals = df_unique.groupby("TRL", observed=True)["Citation Code"].nunique().reindex(trl_order).fillna(0).astype(int)
         trl_percents = (trl_totals / total_studies * 100)
 
-        # Create new x-axis labels with totals and percentages
         x_labels = [
             f"{trl}\n{count} ({percent:.2f}%)"
             for trl, count, percent in zip(trl_order, trl_totals, trl_percents)
         ]
-        ax.set_xticklabels(x_labels, rotation=15, fontsize=14)
+        ax.set_xticklabels(x_labels, rotation=15, fontsize=13)
         ax.set_title("Contribution Types by TRL Level", fontsize=16, pad=15)
         ax.set_ylim(0, pivot_df.values.max() + 10) 
         ax.grid(axis='y', linestyle='--', alpha=0.5)
