@@ -435,7 +435,7 @@ class Analysis:
 # =======================
     def securityTable(self):
         custom_order = [
-            "Not Mentioned",
+            "Not Addressed",
             "Mentioned",
             "Architecturally Addressed",
             "Explicitly Modelled",
@@ -445,7 +445,7 @@ class Analysis:
         
     def reliabilityTable(self):
         custom_order = [
-            "Not Mentioned",
+            "Not Addressed",
             "Mentioned",
             "Architecturally Addressed",
             "Explicitly Modelled",
@@ -539,6 +539,7 @@ class Analysis:
             unique = {cite for cite in citations if pd.notna(cite)}
             return ", ".join(f"\\citepPS{{{c}}}" for c in unique) if unique else "\\citepPS{placeholder}"
 
+        # Extract rows with mentioned standards
         rows = [
             {"Standard": std.strip(), "Paper ID": row["Paper ID"], "Citation Code": row[citation_column]}
             for _, row in df.iterrows() if pd.notna(row[standards_column])
@@ -547,13 +548,13 @@ class Analysis:
 
         exploded_df = pd.DataFrame(rows)
 
-        # Aggregate by frequency
+        # Aggregate by standard
         summary_df = exploded_df.groupby("Standard").agg(
             Paper_Count=("Paper ID", "nunique"),
             Citations=(citation_column, lambda x: format_citations(x.dropna()))
         ).reset_index()
 
-        # Create other category for low frequency items
+        # Handle "Other" category for low-frequency standards
         mask = summary_df["Paper_Count"] <= threshold
         if mask.any():
             other_citations = exploded_df.loc[exploded_df["Standard"].isin(summary_df[mask]["Standard"]), citation_column]
@@ -563,12 +564,27 @@ class Analysis:
                 pd.DataFrame([{
                     "Standard": "Other",
                     "Paper_Count": other_citations.nunique(),
-                    "Citations": format_citations(other_citations.dropna())
+                    "Citations": format_citations(other_citations)
                 }])
             ], ignore_index=True)
-        
+
+        # Identify papers with no mentioned standard
+        no_standard_df = df[df[standards_column].isna() | (df[standards_column].str.strip() == "")]
+        if not no_standard_df.empty:
+            not_mentioned_citations = no_standard_df[citation_column]
+            summary_df = pd.concat([
+                summary_df,
+                pd.DataFrame([{
+                    "Standard": "Not Addressed",
+                    "Paper_Count": no_standard_df["Paper ID"].nunique(),
+                    "Citations": format_citations(not_mentioned_citations)
+                }])
+            ], ignore_index=True)
+
+        # Generate and save LaTeX table
         latex_table = self.generate_latex_table(summary_df, "Standards", "standards-table", "p{6.5cm} l p{10cm}", "Standard")
         self.saveLatex("rq6/standards", latex_table)
+
         
     def dtOrSoSRelated(self):
         self.generate_summary_table("Do The Studies Use Standards in More of an SoS or DT context", "Standards Usage Context (DT vs. SoS)", "dt-or-sos-related-table", "p{2cm} l p{15.5cm}", "Context", "rq6/dtOrSoSRelated")
