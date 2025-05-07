@@ -408,7 +408,7 @@ class Analysis:
                 "Agent-Based Simulation",
                 "Ontological and Knowledge Representation",
                 "Architectural and Structural",
-                "Spatial and Visual Modelling",
+                "Spatial and Visual Modeling",
                 "AI and Machine Learning"
             ],
             caption="Modeling and Simulation Formalisms",
@@ -438,7 +438,7 @@ class Analysis:
             "Not Addressed",
             "Mentioned",
             "Architecturally Addressed",
-            "Explicitly Modelled",
+            "Explicitly Modeled",
             "Evaluated or Validated"
         ]
         self.generate_summary_table("Security/Confidentiality Level", "Security", "security-table", "p{4cm} l p{13.5cm}", "Context", "rq5/securityTable", custom_order)
@@ -448,7 +448,7 @@ class Analysis:
             "Not Addressed",
             "Mentioned",
             "Architecturally Addressed",
-            "Explicitly Modelled",
+            "Explicitly Modeled",
             "Evaluated or Validated"
         ]
         self.generate_summary_table("Reliability Level", "Reliability", "reliability-table", "p{4cm} l p{13.5cm}", "Context", "rq5/reliabilityTable", custom_order)
