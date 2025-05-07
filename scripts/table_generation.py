@@ -108,6 +108,14 @@ class Analysis:
 
         latex_table = self.generate_latex_table(summary_df, caption, label, tabular_size, first_column_name)
         self.saveLatex(f"{save_location}", latex_table)
+
+    # Sorts a data frame so a certain category will appear at the bottom
+    def sort_with_not_addressed_last(self, df, column, lowest_val= "Not Addressed"):
+        df = df.copy()
+        not_addressed = df[df[column] == lowest_val]
+        others = df[df[column] != lowest_val].sort_values(by="Paper_Count", ascending=False)
+        return pd.concat([others, not_addressed], ignore_index=True)
+
         
     # For tables with multiple items per row seperated by a delimiter
     def generate_delimiter_table(self, column, caption, label, tabular_size, first_column_name, save_location, delimiter=","):
@@ -434,25 +442,27 @@ class Analysis:
 # RQ 5
 # =======================
     def securityTable(self):
-        custom_order = [
-            "Not Addressed",
-            "Mentioned",
-            "Architecturally Addressed",
-            "Explicitly Modeled",
-            "Evaluated or Validated"
-        ]
-        self.generate_summary_table("Security/Confidentiality Level", "Security (arranged in canonical order from least to most formally integrated)", "security-table", "p{4cm} l p{13.5cm}", "Context", "rq5/securityTable", custom_order)
-        
+        df = self.df.copy()
+        summary_df = df.groupby("Security/Confidentiality Level").agg(
+            Paper_Count=("Paper ID", "count"),
+            Citations=("Citation Code", lambda x: ", ".join(f"\\citepPS{{{cite}}}" for cite in x.dropna().unique()) if x.dropna().any() else "\\citepPS{placeholder}")
+        ).reset_index()
+        summary_df = self.sort_with_not_addressed_last(summary_df, "Security/Confidentiality Level")
+
+        latex_table = self.generate_latex_table(summary_df, "Security Considerations", "security-table", "p{4cm} l p{13.5cm}", "Context")
+        self.saveLatex("rq5/securityTable", latex_table)
+
     def reliabilityTable(self):
-        custom_order = [
-            "Not Addressed",
-            "Mentioned",
-            "Architecturally Addressed",
-            "Explicitly Modeled",
-            "Evaluated or Validated"
-        ]
-        self.generate_summary_table("Reliability Level", "Reliability (arranged in canonical order from least to most formally integrated)", "reliability-table", "p{4cm} l p{13.5cm}", "Context", "rq5/reliabilityTable", custom_order)
-     
+        df = self.df.copy()
+        summary_df = df.groupby("Reliability Level").agg(
+            Paper_Count=("Paper ID", "count"),
+            Citations=("Citation Code", lambda x: ", ".join(f"\\citepPS{{{cite}}}" for cite in x.dropna().unique()) if x.dropna().any() else "\\citepPS{placeholder}")
+        ).reset_index()
+        summary_df = self.sort_with_not_addressed_last(summary_df, "Reliability Level")
+
+        latex_table = self.generate_latex_table(summary_df, "Reliability Considerations", "reliability-table", "p{4cm} l p{13.5cm}", "Context")
+        self.saveLatex("rq5/reliabilityTable", latex_table)
+
      
 # =======================
 # RQ 6
