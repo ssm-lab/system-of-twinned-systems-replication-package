@@ -427,7 +427,7 @@ class Analysis:
             self.generate_summary_table("Type of SoS", "SoS Type", "sos-type-table", "p{2.5cm} l p{14cm}", "SoS", "rq4/sosTypeTable")
 
     def emergenceTable(self):
-        self.generate_summary_table("Emergence", "Emergence Type", "emergence-type-table", "p{2.5cm} l p{14cm}", "Emergence", "rq4/emergenceTable", ["Not Addressed", "Simple", "Weak", "Strong"])
+        self.generate_summary_table("Emergence", "Emergence type (arranged in canonical order of emergence complexity~\cite{maier1998architecting})", "emergence-type-table", "p{2.5cm} l p{14cm}", "Emergence", "rq4/emergenceTable", ["Not Addressed", "Simple", "Weak", "Strong"])
             
     
 # =======================
@@ -441,7 +441,7 @@ class Analysis:
             "Explicitly Modeled",
             "Evaluated or Validated"
         ]
-        self.generate_summary_table("Security/Confidentiality Level", "Security", "security-table", "p{4cm} l p{13.5cm}", "Context", "rq5/securityTable", custom_order)
+        self.generate_summary_table("Security/Confidentiality Level", "Security (arranged in canonical order from least to most formally integrated)", "security-table", "p{4cm} l p{13.5cm}", "Context", "rq5/securityTable", custom_order)
         
     def reliabilityTable(self):
         custom_order = [
@@ -451,7 +451,7 @@ class Analysis:
             "Explicitly Modeled",
             "Evaluated or Validated"
         ]
-        self.generate_summary_table("Reliability Level", "Reliability", "reliability-table", "p{4cm} l p{13.5cm}", "Context", "rq5/reliabilityTable", custom_order)
+        self.generate_summary_table("Reliability Level", "Reliability (arranged in canonical order from least to most formally integrated)", "reliability-table", "p{4cm} l p{13.5cm}", "Context", "rq5/reliabilityTable", custom_order)
      
      
 # =======================
@@ -465,7 +465,7 @@ class Analysis:
             "Deployed Prototype",
             "Operational"
         ]
-        self.generate_summary_table("TRL", "TRL", "trl-table", "p{3.5cm} l p{15cm}", "TRL", "rq6/trlTable", custom_order)            
+        self.generate_summary_table("TRL", "TRL (arranged in canonical order of technological readiness level ~\cite{mankins2009technology})", "trl-table", "p{3.5cm} l p{15cm}", "TRL", "rq6/trlTable", custom_order)            
             
     def generate_structured_eval_table(self):
         df = self.df.copy()
