@@ -13,7 +13,9 @@ __license__ = "GPL-3.0"
 
 inputFolder = './data'
 outputFolder = './output'
-data = pd.read_excel(f'{inputFolder}/data.xlsx')
+data = pd.read_excel(f'{inputFolder}/data.xlsx', sheet_name="Sheet1")
+data.columns = data.iloc[0]
+data = data[1:].reset_index(drop=True)
 
 data = data[data['Quality score'].notnull()]
 qualityThresholds = {

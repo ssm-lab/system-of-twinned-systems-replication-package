@@ -16,7 +16,7 @@ __license__ = "GPL-3.0"
 
 warnings.filterwarnings("ignore", category=FutureWarning, module="upsetplot.plotting")
 warnings.filterwarnings("ignore", category=FutureWarning, module="upsetplot.data")
-data_path = "data/Data extraction sheet.xlsx"
+data_path = "data/data.xlsx"
 results_path = "./output/figures"
 
 # Get colour coding

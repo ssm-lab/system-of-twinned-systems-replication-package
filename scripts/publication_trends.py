@@ -13,7 +13,9 @@ __license__ = "GPL-3.0"
 
 inputFolder = './data'
 outputFolder = './output'
-data = pd.read_excel(f'{inputFolder}/data.xlsx')
+data = pd.read_excel(f'{inputFolder}/data.xlsx', sheet_name="Sheet1")
+data.columns = data.iloc[0]
+data = data[1:].reset_index(drop=True)
 
 data = data[data['Quality score'].notnull()]
 qualityThresholds = {
@@ -101,7 +103,7 @@ def chartData(data, settings):
             
             values = [element[1] for element in counter]
             sumFrequencies = sum(values)
-            labels = ['{} \u2014 {} ({}%)'.format(element[0], element[1], round((element[1]/sumFrequencies)*100)) for element in counter]
+            labels = ['{} \u2014 {} ({:.2f}%)'.format(element[0], element[1], (element[1]/sumFrequencies)*100) for element in counter]
             #Get the regular labels and values by: labels, values = zip(*counter)
             
             #Prepare bar chart

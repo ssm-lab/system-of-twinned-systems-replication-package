@@ -7,7 +7,7 @@ __author__ = "Feyi Adesanya"
 __copyright__ = "Copyright 2024, Sustainable Systems and Methods Lab (SSM)"
 __license__ = "GPL-3.0"
 
-data_path = "data/Data extraction sheet.xlsx"
+data_path = "data/data.xlsx"
 results_path = "./output/tables"
 
 class Analysis:
