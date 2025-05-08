@@ -31,7 +31,7 @@ for qualityCriterion, minValue in qualityThresholds.items():
 thresholds = {
     'Publication type' : 0,
     'Domain (Aggregated)' : 2,
-    'Publisher' : 2,
+    'Publisher' : 3,
     'Publication year' : 0,
     'Author countries cluster' : 0
 }
@@ -67,11 +67,11 @@ def chartData(data, settings):
             """
             #Split at threshold. Default 1 is used unless specified otherwise in the #thresholds dictionary.
             threshold = thresholds[category] if category in thresholds.keys() else 1
-            counterAboveTreshold = [x for x in counter.items() if x[1]>threshold]
-            
-            if threshold > 0: #anything not above the threshold goes into the 'Other' category
-                counterUpToTreshold = [x for x in counter.items() if x[1]<=threshold]
-            
+            counterAboveTreshold = [x for x in counter.items() if x[1] >= threshold]
+
+            if threshold > 0:
+                counterUpToTreshold = [x for x in counter.items() if x[1] < threshold]
+                        
             #Sort non-'Other' categories before adding the 'Other' bin.
             if category in orderByCategory:
                 counterAboveTreshold = [tuple for x in orders[category] for tuple in counterAboveTreshold if tuple[0] == x]
@@ -81,7 +81,9 @@ def chartData(data, settings):
             
             #If there's been a meaningful threshold set AND there are elements in the 'Other' bin, append the bin.
             if threshold > 0 and len(counterUpToTreshold) > 0:
-                counterAboveTreshold = [('Other', len(counterUpToTreshold))] + counterAboveTreshold
+                other_total = sum([x[1] for x in counterUpToTreshold])
+                counterAboveTreshold = [('Other', other_total)] + counterAboveTreshold
+
 
             plotData[category] = counterAboveTreshold
 
