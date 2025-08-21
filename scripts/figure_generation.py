@@ -153,7 +153,7 @@ class Analysis:
             "legend.fontsize": 16
         })
         UpSet(upset_data, show_counts=True, sort_by='cardinality').plot()
-        plt.suptitle("Combinations of DT Services Across Studies", fontsize=20)
+        plt.suptitle("Combinations of DT Services across Studies", fontsize=20)
         
         for text in plt.gcf().findobj(match=plt.Text):
             if text.get_text().isdigit():
