@@ -147,28 +147,27 @@ class Analysis:
         self.saveLatex(save_location, latex_table)
         
     # for tables with multiple items per row and need an other category based on a frequency threshold
-    def generate_other_cat_table(self, group_by_col, latex_caption, latex_label, latex_tabular_size, latex_first_column, latex_filename, delimiter = ", ", threshold=2):
+    def generate_other_cat_table(self, group_by_col, latex_caption, latex_label, latex_tabular_size, latex_first_column, latex_filename, delimiter=", ", threshold=2, custom_order=None):
         df = self.df.copy()
         citation_col = "Citation Code"
         count_col = "Paper ID"
 
-        # Helper function to format citations
         def format_citations(citations):
-            unique = {cite for cite in citations if pd.notna(cite)}
-            return ", ".join(f"\\cite{{{c}}}" for c in unique) if unique else "\\cite{placeholder}"
+            seen = set()
+            ordered_unique = []
+            for cite in citations:
+                if pd.notna(cite) and cite not in seen:
+                    seen.add(cite)
+                    ordered_unique.append(cite)
+            return ", ".join(f"\\cite{{{c}}}" for c in ordered_unique) if ordered_unique else "\\cite{placeholder}"
 
-        # Extract and explode values by delimiter if it exist
+        # Explode multi-value cells
         rows = []
         for _, row in df.iterrows():
             cell_value = row[group_by_col]
             if pd.isna(cell_value):
                 continue
-
-            if delimiter is None:
-                values = [str(cell_value).strip()]
-            else:
-                values = [v.strip() for v in str(cell_value).split(delimiter) if v.strip()]
-
+            values = [v.strip() for v in str(cell_value).split(delimiter)] if delimiter else [str(cell_value).strip()]
             for value in values:
                 rows.append({
                     group_by_col: value,
@@ -176,37 +175,44 @@ class Analysis:
                     "Citation Code": row.get(citation_col)
                 })
 
-
         exploded_df = pd.DataFrame(rows)
 
-        # Aggregate data
-        agg_funcs = {"Paper_Count": ("Paper ID", "nunique")}
-        if citation_col:
-            agg_funcs["Citations"] = ("Citation Code", lambda x: format_citations(x.dropna()))
-
+        agg_funcs = {
+            "Paper_Count": ("Paper ID", "nunique"),
+            "Citations": ("Citation Code", lambda x: format_citations(x))
+        }
         summary_df = exploded_df.groupby(group_by_col).agg(**agg_funcs).reset_index()
 
-        # Identify low-frequency items
         mask = summary_df["Paper_Count"] <= threshold
 
-        if mask.all():  # If ALL items fall into "Other", keep them listed individually
-            summary_df = summary_df.sort_values(by="Paper_Count", ascending=False)
-        elif mask.any():  # If some, but not all, items are below the threshold, group them into "Other"
-            other_citations = exploded_df.loc[exploded_df[group_by_col].isin(summary_df[mask][group_by_col]), citation_col] if citation_col else None
-            summary_df = summary_df[~mask].sort_values(by="Paper_Count", ascending=False)
-
-            # Create "Other" category
+        # Prepare "Other" category if needed
+        other_row = None
+        if mask.any() and not mask.all():
+            other_citations = exploded_df.loc[exploded_df[group_by_col].isin(summary_df[mask][group_by_col]), citation_col]
             other_row = {
                 group_by_col: "Other",
-                "Paper_Count": other_citations.nunique() if citation_col else mask.sum(),
-                "Citations": format_citations(other_citations.dropna()) if citation_col else None
+                "Paper_Count": other_citations.nunique(),
+                "Citations": format_citations(other_citations)
             }
+            summary_df = summary_df[~mask]  # remove small categories
+
+        # Apply ordering
+        if custom_order:
+            summary_df[group_by_col] = pd.Categorical(summary_df[group_by_col], categories=custom_order, ordered=True)
+            summary_df = summary_df.sort_values(by=group_by_col)
+        else:
+            summary_df = summary_df.sort_values(by="Paper_Count", ascending=False)
+
+        # Add "Other" row at the bottom
+        if other_row:
             summary_df = pd.concat([summary_df, pd.DataFrame([other_row])], ignore_index=True)
 
         # Generate and save LaTeX table
         latex_table = self.generate_latex_table(summary_df, latex_caption, latex_label, latex_tabular_size, latex_first_column)
         self.saveLatex(latex_filename, latex_table)
-        
+
+
+            
         
     def generate_hierarchical_table(self, category_list, caption, label, filename, column_label, threshold=2, latex_friendly_names=None):
         df = self.df.copy()
@@ -287,7 +293,7 @@ class Analysis:
     def domainsTable(self):
         self.generate_other_cat_table(
             group_by_col="Domain (Aggregated)",
-            latex_caption="Application Domains",
+            latex_caption="Application domains",
             latex_label="domains-table",
             latex_tabular_size="p{4cm} l p{13.5cm}",
             latex_first_column="Domain",
@@ -408,7 +414,7 @@ class Analysis:
                 "Agent-Based Simulation",
                 "Ontological and Knowledge Representation",
                 "Architectural and Structural",
-                "Spatial and Visual Modelling",
+                "Spatial and Visual Modeling",
                 "AI and Machine Learning"
             ],
             caption="Modeling and simulation formalisms",
@@ -435,20 +441,20 @@ class Analysis:
 # =======================
     def securityTable(self):
         custom_order = [
-            "Not Mentioned",
+            "Not Addressed",
             "Mentioned",
             "Architecturally Addressed",
-            "Explicitly Modelled",
+            "Explicitly Modeled",
             "Evaluated or Validated"
         ]
         self.generate_summary_table("Security/Confidentiality Level", "Security", "security-table", "p{4cm} l p{13.5cm}", "Context", "rq5/securityTable", custom_order)
         
     def reliabilityTable(self):
         custom_order = [
-            "Not Mentioned",
+            "Not Addressed",
             "Mentioned",
             "Architecturally Addressed",
-            "Explicitly Modelled",
+            "Explicitly Modeled",
             "Evaluated or Validated"
         ]
         self.generate_summary_table("Reliability Level", "Reliability", "reliability-table", "p{4cm} l p{13.5cm}", "Context", "rq5/reliabilityTable", custom_order)
