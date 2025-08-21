@@ -543,40 +543,57 @@ class Analysis:
         standards_column = "Standards Used (Cleaned Up)"
         citation_column = "Citation Code"
 
+        # Preserve encounter order (df is already sorted by "Citation Order")
         def format_citations(citations):
-            unique = {cite for cite in citations if pd.notna(cite)}
-            return ", ".join(f"\\cite{{{c}}}" for c in unique) if unique else "\\cite{placeholder}"
+            s = pd.Series(citations).dropna().drop_duplicates(keep="first")
+            return ", ".join(f"\\cite{{{c}}}" for c in s) if not s.empty else "\\cite{placeholder}"
 
+        # explode rows: one row per (Standard, Paper)
         rows = [
-            {"Standard": std.strip(), "Paper ID": row["Paper ID"], "Citation Code": row[citation_column]}
-            for _, row in df.iterrows() if pd.notna(row[standards_column])
+            {
+                "Standard": std.strip(),
+                "Paper ID": row["Paper ID"],
+                "Citation Code": row[citation_column],
+            }
+            for _, row in df.iterrows() if pd.notna(row.get(standards_column))
             for std in str(row[standards_column]).split(";") if std.strip()
         ]
-
         exploded_df = pd.DataFrame(rows)
 
-        # Aggregate by frequency
-        summary_df = exploded_df.groupby("Standard").agg(
+        # Aggregate by standard (citations kept in encounter order)
+        summary_df = exploded_df.groupby("Standard", sort=False).agg(
             Paper_Count=("Paper ID", "nunique"),
-            Citations=(citation_column, lambda x: format_citations(x.dropna()))
+            Citations=(citation_column, lambda x: format_citations(x))
         ).reset_index()
 
-        # Create other category for low frequency items
+        # Build "Other" bucket for low-frequency standards (<= threshold)
         mask = summary_df["Paper_Count"] <= threshold
-        if mask.any():
-            other_citations = exploded_df.loc[exploded_df["Standard"].isin(summary_df[mask]["Standard"]), citation_column]
-            summary_df = summary_df[~mask].sort_values(by="Paper_Count", ascending=False)
+        if mask.any() and not mask.all():
+            low_standards = summary_df.loc[mask, "Standard"]
+            low_df = exploded_df[exploded_df["Standard"].isin(low_standards)]
+
+            other_paper_count = low_df["Paper ID"].nunique()  # count papers
+            other_citations = format_citations(low_df[citation_column])
+
+            # keep main standards sorted by Paper_Count desc
+            summary_df = summary_df.loc[~mask].sort_values(by="Paper_Count", ascending=False)
+
             summary_df = pd.concat([
                 summary_df,
                 pd.DataFrame([{
                     "Standard": "Other",
-                    "Paper_Count": other_citations.nunique(),
-                    "Citations": format_citations(other_citations.dropna())
+                    "Paper_Count": other_paper_count,
+                    "Citations": other_citations
                 }])
             ], ignore_index=True)
-        
-        latex_table = self.generate_latex_table(summary_df, "Standards", "standards-table", "p{6.5cm} l p{10cm}", "Standard")
+        else:
+            summary_df = summary_df.sort_values(by="Paper_Count", ascending=False)
+
+        latex_table = self.generate_latex_table(
+            summary_df, "Standards", "standards-table", "p{6.5cm} l p{10cm}", "Standard"
+        )
         self.saveLatex("rq6/standards", latex_table)
+
         
     def dtOrSoSRelated(self):
         self.generate_summary_table("Do The Studies Use Standards in More of an SoS or DT context", "Standards usage context (DT vs. SoS)", "dt-or-sos-related-table", "p{2cm} l p{15.5cm}", "Context", "rq6/dtOrSoSRelated")
