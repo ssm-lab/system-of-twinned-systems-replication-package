@@ -59,6 +59,8 @@ class Analysis:
         df[columns_to_check] = df[columns_to_check].apply(pd.to_numeric, errors="coerce")
         df = df.dropna(subset=columns_to_check)
         df = df[~(df[columns_to_check] == 0).any(axis=1)]
+        # Sort by the citation order before creating tables, will match with latex citations
+        df = df.sort_values(by=["Citation Order", "Citation Code"], kind="mergesort").reset_index(drop=True)
         df["Paper ID"] = [f"T{i+1:02d}" for i in range(len(df))]
         return df
 
