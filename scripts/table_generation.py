@@ -398,7 +398,7 @@ class Analysis:
     def dtServicesTable(self):
         self.generate_delimiter_table(
         column="Services (Cleaned)", 
-        caption="DT services available", 
+        caption="DT services supported", 
         label="dt-services-table", 
         tabular_size="p{3.5cm} l p{14cm}", 
         first_column_name="Service", 

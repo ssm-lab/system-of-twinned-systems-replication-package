@@ -105,7 +105,8 @@ class Analysis:
         for spine in ax.spines.values():
             spine.set_visible(False)
 
-        # ax.set_title("Intent of SoTS vs Domain", fontsize=18, pad=15)
+        ax.set_title("Intent of SoTS Studies by Domain", fontsize=28, pad=15, x=0.25)
+
         plt.tight_layout()
 
         # Save
@@ -153,7 +154,7 @@ class Analysis:
             "legend.fontsize": 16
         })
         UpSet(upset_data, show_counts=True, sort_by='cardinality').plot()
-        plt.suptitle("Combinations of DT Services across Studies", fontsize=20)
+        plt.suptitle("Combinations of DT Services Across Studies", fontsize=20)
         
         for text in plt.gcf().findobj(match=plt.Text):
             if text.get_text().isdigit():
@@ -270,11 +271,11 @@ class Analysis:
         pivot_df = grouped.pivot(index="TRL", columns="Contribution type", values="Count").fillna(0).astype(int)
         pivot_df = pivot_df.reindex(trl_order)
 
-        contribution_types = ["Conceptual", "Technical", "Case study"]
+        contribution_types = ["Conceptual", "Technical", "Case Study"]
         colors = {
             "Conceptual": colour_coding["red"],
             "Technical": colour_coding["blue"],
-            "Case study": colour_coding["grey"],
+            "Case Study": colour_coding["grey"],
         }
 
         x = np.arange(len(pivot_df))
