@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import os
 import warnings
 import numpy as np
@@ -28,7 +29,8 @@ class Analysis:
         1: "intentOfSoSDT", # RQ1
         2: "sosDimensions", # RQ4
         3: "trlVsContributionType", #RQ6
-        4: "dtServices", #RQ3
+        4: "dtServices", #RQ3,
+        5: "plot_timeline_by_category"
     }
     
     def __init__(self):
@@ -191,59 +193,67 @@ class Analysis:
         partial_vals = percentages["Partial"]
         yes_vals = percentages["Yes"]
 
-        left_no = -no_vals - (partial_vals / 2)
-        left_partial = -partial_vals / 2
-        left_yes = partial_vals / 2
+        # positions of bars
+        left_no      = -no_vals - (partial_vals / 2.0)
+        left_partial = -partial_vals / 2.0
+        left_yes     =  (partial_vals / 2.0)
 
-        fig, ax = plt.subplots(figsize=(30, len(percentages) * 1.5))
-        plt.subplots_adjust(left=0.25, right=0.95) 
+        # Figure/axes
+        bar_height = 0.8 # controls bar height
+        # fig, ax = plt.subplots(figsize=(30, len(percentages)*1)) # controls space between bars
+        fig, ax = plt.subplots(figsize=(12, 6*(0.8)))
+        plt.subplots_adjust(left=0.25, right=0.95)
         y_pos = np.arange(len(percentages))
         
-        ax.barh(y_pos, no_vals, left=left_no, color=colour_coding["red"], label="No")
-        ax.barh(y_pos, partial_vals, left=left_partial, color=colour_coding["grey"], label="Partial")
-        ax.barh(y_pos, yes_vals, left=left_yes, color=colour_coding["blue"], label="Yes")
+        ax.barh(y_pos, no_vals,      left=left_no,      height=bar_height, color=colour_coding["red"],  label="No")
+        ax.barh(y_pos, partial_vals, left=left_partial, height=bar_height, color=colour_coding["grey"], label="Partial")
+        ax.barh(y_pos, yes_vals,     left=left_yes,     height=bar_height, color=colour_coding["blue"], label="Yes")
 
+        # Styling
         ax.set_facecolor("#ffffff")
-
         ax.set_yticks(y_pos)
-        font_prop = font_manager.FontProperties(size=32)
+        font_prop = font_manager.FontProperties(size=12)
         ax.set_yticklabels(percentages.index, fontproperties=font_prop)
-        ax.tick_params(axis='y', pad=30)
-        ax.set_xlabel("Percentage", fontsize=28)
-        ax.set_title("SoS Dimensions", fontsize=36)
-
-        ax.tick_params(axis='x', labelsize=28)
-
+        ax.tick_params(axis='y', pad=15)
+        ax.set_xlabel("Percentage", fontsize=13)
+        ax.set_title("SoS Dimensions", fontsize=14)
+        ax.tick_params(axis='both', labelsize=13)
         ax.axvline(0, color='black', linewidth=0.5, linestyle=':')
-
         ax.set_xlim(-100, 100)
-
         ax.xaxis.set_major_locator(MultipleLocator(20))
         ax.xaxis.set_major_formatter(FuncFormatter(lambda x, pos: f"{abs(x):.0f}%"))
 
-        min_width = 5
+        # Labels
+        min_width = 5  # threshold for showing internal labels
+        font_weight = 500
+        font_size = 10
         for i in range(len(percentages.index)):
+            # "No"
             if no_vals.iloc[i] > 0:
-                xpos = left_no.iloc[i] + no_vals.iloc[i] / 2
-                ha = 'center' if no_vals.iloc[i] >= min_width else 'right'
-                ax.text(xpos if no_vals.iloc[i] >= min_width else left_no.iloc[i] - 1, i,
-                        f"{no_vals.iloc[i]:.2f}%", va='center', ha=ha,
-                        color='black', fontsize=24, weight=550)
+                xpos = left_no.iloc[i] + no_vals.iloc[i] / 2.0
+                if no_vals.iloc[i] >= min_width:
+                    ax.text(xpos, i, f"{no_vals.iloc[i]:.2f}%", va='center', ha='center',
+                            color='black', fontsize=font_size, weight=font_weight)
 
-            if partial_vals.iloc[i] > 0:
-                ax.text(0, i - 0.3 if partial_vals.iloc[i] < min_width else i,
-                        f"{partial_vals.iloc[i]:.2f}%", va='center',
-                        ha='center', color='black', fontsize=24, weight=550)
+            # "Partial"
+            if partial_vals.iloc[i] >= min_width:
+                ax.text(0, i, f"{partial_vals.iloc[i]:.2f}%", va='center', ha='center',
+                        color='black', fontsize=font_size, weight=font_weight)
+            # else: nudged overlapping "partial" label slightly downwards
+            #     ax.text(0, y_pos[i] - 0.3,
+            #             f"{partial_vals.iloc[i]:.2f}%", va='center', ha='center',
+            #             color='black', fontsize=font_size, weight=font_weight)
 
+            # "Yes"
             if yes_vals.iloc[i] > 0:
-                xpos = left_yes.iloc[i] + yes_vals.iloc[i] / 2
-                ha = 'center' if yes_vals.iloc[i] >= min_width else 'left'
-                ax.text(xpos if yes_vals.iloc[i] >= min_width else xpos + 1, i,
-                        f"{yes_vals.iloc[i]:.2f}%", va='center', ha=ha,
-                        color='black', fontsize=24, weight=550)
+                xpos = left_yes.iloc[i] + yes_vals.iloc[i] / 2.0
+                if yes_vals.iloc[i] >= min_width:
+                    ax.text(xpos, i, f"{yes_vals.iloc[i]:.2f}%", va='center', ha='center',
+                            color='black', fontsize=font_size, weight=font_weight)
 
         plt.tight_layout()
         self.savefig("sosDimensions", upper_folder="RQ4")
+
             
 # =======================
 # RQ 5
@@ -324,6 +334,60 @@ class Analysis:
 # =======================
 # RQ 7
 # =======================   
+
+
+# =======================
+# RQ Timeline 
+# =======================   
+    def plot_timeline_by_category(
+        self,
+        category_col: str = "SoTS Classification",
+        year_col: str = "Publication year",
+        title: str | None = None,
+        min_year: int | None = None,
+        max_year: int | None = 2023,
+        ):
+
+        df = self.df.dropna(subset=[year_col, category_col]).copy()
+        df[year_col] = pd.to_numeric(df[year_col], errors="coerce").dropna().astype(int)
+
+        counts = (
+            df.groupby([year_col, category_col])
+            .size()
+            .unstack(fill_value=0)
+            .sort_index()
+        )
+
+        # Year bounds
+        y_min = counts.index.min() if min_year is None else int(min_year)
+        y_max = counts.index.max() if max_year is None else int(max_year)
+        years = pd.Index(range(y_min, y_max + 1), name=year_col)
+        counts = counts.reindex(index=years, fill_value=0)
+        
+        ordered_cols = ["Directed SoTS", "Acknowledged SoTS", "Collaborative SoTS", "Virtual SoTS"]
+        counts = counts.reindex(columns=ordered_cols, fill_value=0)
+
+        # Plot
+        fig, ax = plt.subplots(figsize=(11, 5.5))
+        counts.plot(ax=ax) 
+
+        ax.set_xlabel("Publication year")
+        ax.set_ylabel("Count")
+        ax.set_title(title or f"Counts per Year by SoTS Type", pad=12)
+
+        ax.xaxis.set_major_locator(MultipleLocator(1))
+        ax.grid(True, which="both", axis="y", linewidth=0.5, alpha=0.4)
+        ax.grid(True, which="major", axis="x", linewidth=0.3, alpha=0.2)
+
+        handles, labels = ax.get_legend_handles_labels()
+        if len(labels) > 6:
+            ax.legend(loc="center left", bbox_to_anchor=(1.0, 0.5), title=None)
+            fig.tight_layout(rect=[0, 0, 0.86, 1])
+        else:
+            ax.legend(title=None)
+            fig.tight_layout()
+
+        self.savefig("timeline_by_sots_category")
 
                
 # =======================
