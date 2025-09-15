@@ -69,8 +69,8 @@ class Analysis:
 # Table Generator
 # =======================    
     def generate_latex_table(self, summary_df, caption, label, tabular_size, first_column_name):
-            tabular_size_formatted = f"@{{}} {tabular_size} @{{}}"
-            # tabular_size_formatted = r"@{}p{3cm}l p{12.5cm}@{}" # Fixed size
+            # tabular_size_formatted = f"@{{}} {tabular_size} @{{}}"
+            tabular_size_formatted = r"@{}p{4cm}l p{11.5cm}@{}" # Fixed size
             latex_table = f"""\\begin{{table*}}[]
             \\centering
             \\caption{{{caption}}}
