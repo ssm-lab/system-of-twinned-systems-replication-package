@@ -10,6 +10,20 @@ from matplotlib.ticker import MultipleLocator, FuncFormatter
 from matplotlib import font_manager
 import json
 from upsetplot import UpSet, from_memberships
+import matplotlib as mpl
+
+
+mpl.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["Times New Roman", "Times", "DejaVu Serif"],
+    "font.size": 9,              # match body text
+    "axes.titlesize": 9,
+    "axes.labelsize": 9,
+    "xtick.labelsize": 9,
+    "ytick.labelsize": 9,
+    "legend.fontsize": 8,        # slightly smaller for captions/legends
+})
+
 
 __author__ = "Feyi Adesanya"
 __copyright__ = "Copyright 2024, Sustainable Systems and Methods Lab (SSM)"

@@ -4,6 +4,22 @@ import os
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
+import matplotlib as mpl
+
+
+mpl.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["Times New Roman", "Times", "DejaVu Serif"],
+    "font.size": 10,     
+    "axes.titlesize": 11,
+    "axes.labelsize": 10,
+    "xtick.labelsize": 10,
+    "ytick.labelsize": 10,
+    "legend.fontsize": 10,   
+    "mathtext.fontset": "cm",                
+    "mathtext.rm": "serif",                  
+})
+
 
 __author__ = "Feyi Adesanya"
 __copyright__ = "Copyright 2024, Sustainable Systems and Methods Lab (SSM)"
@@ -88,9 +104,10 @@ class Analysis:
         *, 
         custom_order=None,                 
         total_studies = 80,
-        bar_height=0.5, bar_gap=0,
-        top_pad=0, bottom_pad=0.35,
-        fig_width=6.0, label_fontsize=11.0, left_pad_extra=0.05
+        bar_height=0.2,
+        pad_between_bars = 0.28,
+        top_pad=0, bottom_pad=0,
+        fig_width=3, label_fontsize=9.0, left_pad_extra=0.05
     ):
         if summary_df.empty:
             os.makedirs(os.path.dirname(outfile), exist_ok=True)
@@ -126,11 +143,11 @@ class Analysis:
 
         # ------------ layout ------------
         n = len(df)
-        content_h = n * bar_height + max(0, n - 1) * bar_gap
+        content_h = n * bar_height + max(0, n - 1) * 0.025
         fig_h = max(1.1, top_pad + content_h + bottom_pad)
 
         fig, ax = plt.subplots(figsize=(fig_width, fig_h), constrained_layout=False)
-        y = np.arange(n) * 0.55
+        y = np.arange(n) * pad_between_bars
 
         ax.barh(y, widths, height=bar_height, color=bar_color, edgecolor="none")
 
@@ -146,7 +163,7 @@ class Analysis:
         if n:
             ax.set_ylim(y[0] - bar_height/2, y[-1] + bar_height/2)
 
-        ax.set_title(self.custom_title(ylabel), fontsize=12, loc="left", pad=0)
+        ax.set_title(self.custom_title(ylabel), fontsize=10, loc="center", pad=5)
         for s in ("top", "right", "bottom", "left"):
             ax.spines[s].set_visible(False)
 
@@ -156,7 +173,9 @@ class Analysis:
         renderer = fig.canvas.get_renderer()
         max_tick_w_in = max((t.get_window_extent(renderer=renderer).width for t in ax.get_yticklabels()), default=0) / fig.dpi
         left_frac = min(0.48, max(0.12, max_tick_w_in/fig_width + left_pad_extra))
-        plt.subplots_adjust(left=left_frac, right=0.98, top=1 - top_pad/fig_h, bottom=bottom_pad/fig_h)
+        # plt.subplots_adjust(left=left_frac, right=0.98, top=1 - top_pad/fig_h, bottom=bottom_pad/fig_h)
+        # plt.subplots_adjust(left=0.25, right=0.3, top=0.95, bottom=0.08)
+
 
         os.makedirs(os.path.dirname(outfile), exist_ok=True)
         fig.savefig(outfile, dpi=300, bbox_inches="tight")
