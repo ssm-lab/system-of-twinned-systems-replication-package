@@ -16,13 +16,16 @@ import matplotlib as mpl
 mpl.rcParams.update({
     "font.family": "serif",
     "font.serif": ["Times New Roman", "Times", "DejaVu Serif"],
-    "font.size": 9,              # match body text
-    "axes.titlesize": 9,
-    "axes.labelsize": 9,
-    "xtick.labelsize": 9,
-    "ytick.labelsize": 9,
-    "legend.fontsize": 8,        # slightly smaller for captions/legends
+    "font.size": 13,     
+    "axes.titlesize": 14,
+    "axes.labelsize": 13,
+    "xtick.labelsize": 13,
+    "ytick.labelsize": 13,
+    "legend.fontsize": 13,   
+    "mathtext.fontset": "cm",                
+    "mathtext.rm": "serif",                  
 })
+
 
 
 __author__ = "Feyi Adesanya"
@@ -103,18 +106,18 @@ class Analysis:
 
         for i, (dt, sos) in enumerate(zip(dt_values, sos_values)):
             if dt != 0:
-                ax.text(dt - 0.5, i, f"{-int(dt)}", va='center', ha='right', fontsize=21)
+                ax.text(dt - 0.5, i, f"{-int(dt)}", va='center', ha='right', fontsize=24)
             if sos != 0:
-                ax.text(sos + 0.5, i, f"{int(sos)}", va='center', ha='left', fontsize=21)
+                ax.text(sos + 0.5, i, f"{int(sos)}", va='center', ha='left', fontsize=24)
 
         ax.set_yticks(y_pos)
-        ax.set_yticklabels(y_categories, fontsize=22)
-        ax.set_xlabel("# of Studies", fontsize=22)
+        ax.set_yticklabels(y_categories, fontsize=24)
+        ax.set_xlabel("# of Studies", fontsize=24)
         ax.set_xlim(-30, 10)
         ax.set_xticks(range(-30, 15, 5))
-        ax.set_xticklabels([str(abs(x)) for x in range(-30, 15, 5)], fontsize=22)
+        ax.set_xticklabels([str(abs(x)) for x in range(-30, 15, 5)], fontsize=24)
         
-        ax.tick_params(axis='y', which='both', length=0, labelsize=22) 
+        ax.tick_params(axis='y', which='both', length=0, labelsize=24) 
         # ax.grid(True, axis='x', linestyle='--', linewidth=0.5)
         # ax.axvline(0, color='black', linewidth=1)
         ax.grid(False)
@@ -129,9 +132,6 @@ class Analysis:
         self.savefig("intentOfSoSDT", upper_folder="RQ1")
         plt.close()
         
-# =======================
-# RQ 2
-# =======================
 
 
 # =======================
@@ -162,19 +162,19 @@ class Analysis:
 
         plt.figure(figsize=(12, 9))
         plt.rcParams.update({
-            "font.size": 18,
-            "axes.titlesize": 19,
-            "axes.labelsize": 18,
-            "xtick.labelsize": 18,
-            "ytick.labelsize": 18,
-            "legend.fontsize": 16
+            "font.size": 23,
+            "axes.titlesize": 21,
+            "axes.labelsize": 22,
+            "xtick.labelsize": 22,
+            "ytick.labelsize": 22,
+            "legend.fontsize": 20
         })
         UpSet(upset_data, show_counts=True, sort_by='cardinality').plot()
-        plt.suptitle("Combinations of DT Services Across Studies", fontsize=20)
+        plt.suptitle("Combinations of DT Services Across Studies")
         
         for text in plt.gcf().findobj(match=plt.Text):
             if text.get_text().isdigit():
-                text.set_fontsize(18)
+                text.set_fontsize(23)
 
 
         self.savefig("dtServices", upper_folder="RQ3")
@@ -229,9 +229,9 @@ class Analysis:
         font_prop = font_manager.FontProperties(size=12)
         ax.set_yticklabels(percentages.index, fontproperties=font_prop)
         ax.tick_params(axis='y', pad=15)
-        ax.set_xlabel("Percentage", fontsize=13)
-        ax.set_title("SoS Dimensions", fontsize=14)
-        ax.tick_params(axis='both', labelsize=13)
+        ax.set_xlabel("Percentage", fontsize=17)
+        ax.set_title("SoS Dimensions", fontsize=19)
+        ax.tick_params(axis='both', labelsize=17)
         ax.axvline(0, color='black', linewidth=0.5, linestyle=':')
         ax.set_xlim(-100, 100)
         ax.xaxis.set_major_locator(MultipleLocator(20))
@@ -240,7 +240,7 @@ class Analysis:
         # Labels
         min_width = 5  # threshold for showing internal labels
         font_weight = 500
-        font_size = 10
+        font_size = 13
         for i in range(len(percentages.index)):
             # "No"
             if no_vals.iloc[i] > 0:
@@ -269,9 +269,6 @@ class Analysis:
         self.savefig("sosDimensions", upper_folder="RQ4")
 
             
-# =======================
-# RQ 5
-# =======================   
        
        
 # =======================
@@ -324,10 +321,10 @@ class Analysis:
                                 xytext=(0, offset),
                                 textcoords="offset points",
                                 ha='center', va='bottom',
-                                fontsize=12)
+                                fontsize=18)
 
-        ax.set_ylabel("Number of Papers", fontsize=13)
-        ax.tick_params(axis='y', labelsize=13)
+        ax.set_ylabel("Number of Papers", fontsize=18)
+        ax.tick_params(axis='y', labelsize=18)
         ax.set_xticks(x)
         
         trl_totals = df_unique.groupby("TRL", observed=True)["Citation Code"].nunique().reindex(trl_order).fillna(0).astype(int)
@@ -337,17 +334,13 @@ class Analysis:
             f"{trl}\n{count} ({percent:.2f}%)"
             for trl, count, percent in zip(trl_order, trl_totals, trl_percents)
         ]
-        ax.set_xticklabels(x_labels, rotation=15, fontsize=13)
-        ax.set_title("Contribution Types by TRL Level", fontsize=16, pad=15)
+        ax.set_xticklabels(x_labels, rotation=15, fontsize=17)
+        ax.set_title("Contribution Types by TRL Level", fontsize=20, pad=10)
         ax.set_ylim(0, pivot_df.values.max() + 10) 
         ax.grid(axis='y', linestyle='--', alpha=0.5)
 
         plt.tight_layout()
         self.savefig("trlVsContributionType", upper_folder="rq6")
-
-# =======================
-# RQ 7
-# =======================   
 
 
 # =======================
