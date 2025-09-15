@@ -69,12 +69,13 @@ class Analysis:
 # Table Generator
 # =======================    
     def generate_latex_table(self, summary_df, caption, label, tabular_size, first_column_name):
+            tabular_size_formatted = f"@{{}} {tabular_size} @{{}}"
+            # tabular_size_formatted = r"@{}p{3cm}l p{12.5cm}@{}" # Fixed size
             latex_table = f"""\\begin{{table*}}[]
             \\centering
             \\caption{{{caption}}}
             \\label{{tab:{label}}}
-            \\resizebox{{\\textwidth}}{{!}}{{ 
-            \\begin{{tabular}}{{@{{}} {tabular_size} @{{}}}}
+            \\begin{{tabular}}{{{tabular_size_formatted}}}
             \\toprule
             \\multicolumn{{1}}{{c}}{{\\textbf{{{first_column_name}}}}} & 
             \\multicolumn{{1}}{{c}}{{\\textbf{{Frequency}}}} & 
@@ -89,7 +90,6 @@ class Analysis:
 
             latex_table += """\\bottomrule
             \\end{tabular}
-            }
             \\end{table*}"""
             return latex_table
         
@@ -241,7 +241,7 @@ class Analysis:
             f"\\caption{{{caption}}}",
             f"\\label{{tab:{label}}}",
             "\\footnotesize",
-            "\\begin{tabular}{@{}p{5.0cm} l p{9cm}@{}}", 
+            "\\begin{tabular}{@{}p{5cm} l p{10cm}@{}}", 
             "\\toprule",
             f"\\textbf{{{column_label}}} & \\textbf{{Frequency}} & \\textbf{{Studies}} \\\\",
             "\\midrule"
@@ -287,17 +287,17 @@ class Analysis:
 # RQ 1 
 # =======================          
     def motivationsTable(self):
-        self.generate_summary_table("Motivation (Clustered)", "Motivations for combining DT and SoS", "motivations-table", "p{2.5cm} l p{15cm}", "Motivation", "rq1/motivations")
+        self.generate_summary_table("Motivation (Clustered)", "Motivations for combining DT and SoS", "motivations-table", "p{2.5cm} l p{13cm}", "Motivation", "rq1/motivations")
         
     def intentsTable(self):
-        self.generate_summary_table("Intent", "Intents of combining DT and SoS", "intents-table", "p{4cm} l p{13.5cm}", "Intent", "rq1/intentsTable")
+        self.generate_summary_table("Intent", "Intents of combining DT and SoS", "intents-table", "p{4cm} l p{11.5cm}", "Intent", "rq1/intentsTable")
         
     def domainsTable(self):
         self.generate_other_cat_table(
             group_by_col="Domain (Aggregated)",
             latex_caption="Application domains",
             latex_label="domains-table",
-            latex_tabular_size="p{4cm} l p{13.5cm}",
+            latex_tabular_size="p{4cm} l p{11.5cm}",
             latex_first_column="Domain",
             latex_filename="rq1/domainsTable",
             delimiter=None,
@@ -337,7 +337,7 @@ class Analysis:
             "\\caption{Challenges}",
             "\\label{tab:challenges-table}",
             "\\footnotesize",
-            "\\begin{tabular}{@{}p{5.25cm} l p{8cm}@{}}", 
+            "\\begin{tabular}{@{}p{4cm} l p{11cm}@{}}", 
             "\\toprule",
             "\\textbf{Challenge} & \\textbf{Frequency} & \\textbf{Studies} \\\\",
             "\\midrule"
@@ -375,32 +375,32 @@ class Analysis:
 # RQ 2
 # =======================
     def topologyExtractionTable(self):        
-        self.generate_summary_table("Topology of DT/PT (Cleaned)", "Topologies", "topology-table", "p{2.5cm} l p{15cm}", "Topology", "rq2/topologyExtractionTable")
+        self.generate_summary_table("Topology of DT/PT (Cleaned)", "Topologies", "topology-table", "p{2.5cm} l p{13cm}", "Topology", "rq2/topologyExtractionTable")
 
     def spatialDistributionTable(self):
-        self.generate_summary_table("Spatial Distribution", "Spatial distribution", "spatial-distribution-table", "p{3.5cm} l p{15cm}", "Distribution", "rq2/spatialDistributionTable")
+        self.generate_summary_table("Spatial Distribution", "Spatial distribution", "spatial-distribution-table", "p{3.5cm} l p{12cm}", "Distribution", "rq2/spatialDistributionTable")
         
     def coordinationExtractionTable(self):
-        self.generate_summary_table("Coordination (Cleaned)", "Coordination", "coordination-table", "p{3.5cm} l p{15cm}", "Coordination", "rq2/coordinationExtractionTable")
+        self.generate_summary_table("Coordination (Cleaned)", "Coordination", "coordination-table", "p{3.5cm} l p{12cm}", "Coordination", "rq2/coordinationExtractionTable")
     
     def constituentUnitsTable(self):
-        self.generate_summary_table("Constituent unit (higher level aggregation)", "Constituent units", "constituent-units-table", "p{5cm} l p{12.5cm}", "Constituent Unit", "rq2/constituentUnitsTable")
+        self.generate_summary_table("Constituent unit (higher level aggregation)", "Constituent units", "constituent-units-table", "p{5cm} l p{10.5cm}", "Constituent Unit", "rq2/constituentUnitsTable")
         
     def sots_classificationTable(self):
-        self.generate_summary_table("SoTS Classification", "SoTS Type", "sots-type-table", "p{2.5cm} l p{14cm}", "SoTS", "rq2/sotsTypeTable")
+        self.generate_summary_table("SoTS Classification", "SoTS Type", "sots-type-table", "p{2.5cm} l p{13cm}", "SoTS", "rq2/sotsTypeTable")
     
 # =======================
 # RQ 3 
 # =======================
     def autonomyTable(self):
-        self.generate_summary_table("DT Class", "Levels of autonomy", "autonomy-table", "p{5cm} l p{13.5cm}", "Autonomy", "rq3/autonomyTable")
+        self.generate_summary_table("DT Class", "Levels of autonomy", "autonomy-table", "p{5cm} l p{10.5cm}", "Autonomy", "rq3/autonomyTable")
 
     def dtServicesTable(self):
         self.generate_delimiter_table(
         column="Services (Cleaned)", 
         caption="DT services supported", 
         label="dt-services-table", 
-        tabular_size="p{3.5cm} l p{14cm}", 
+        tabular_size="p{3.5cm} l p{12cm}", 
         first_column_name="Service", 
         save_location="rq3/dtServicesTable"
         )
@@ -432,10 +432,10 @@ class Analysis:
 # RQ 4 
 # =======================   
     def sosTypeTable(self):
-            self.generate_summary_table("Type of SoS", "SoS Type", "sos-type-table", "p{2.5cm} l p{14cm}", "SoS", "rq4/sosTypeTable")
+            self.generate_summary_table("Type of SoS", "SoS Type", "sos-type-table", "p{2.5cm} l p{13cm}", "SoS", "rq4/sosTypeTable")
 
     def emergenceTable(self):
-        self.generate_summary_table("Emergence", "Emergence type", "emergence-type-table", "p{2.5cm} l p{14cm}", "Emergence", "rq4/emergenceTable", ["Not Addressed", "Simple", "Weak", "Strong"])
+        self.generate_summary_table("Emergence", "Emergence type", "emergence-type-table", "p{2.5cm} l p{13cm}", "Emergence", "rq4/emergenceTable", ["Not Addressed", "Simple", "Weak", "Strong"])
             
     
 # =======================
@@ -449,7 +449,7 @@ class Analysis:
             "Explicitly Modeled",
             "Evaluated or Validated"
         ]
-        self.generate_summary_table("Security/Confidentiality Level", "Security", "security-table", "p{4cm} l p{13.5cm}", "Context", "rq5/securityTable", custom_order)
+        self.generate_summary_table("Security/Confidentiality Level", "Security", "security-table", "p{4cm} l p{11.5cm}", "Context", "rq5/securityTable", custom_order)
         
     def reliabilityTable(self):
         custom_order = [
@@ -459,7 +459,7 @@ class Analysis:
             "Explicitly Modeled",
             "Evaluated or Validated"
         ]
-        self.generate_summary_table("Reliability Level", "Reliability", "reliability-table", "p{4cm} l p{13.5cm}", "Context", "rq5/reliabilityTable", custom_order)
+        self.generate_summary_table("Reliability Level", "Reliability", "reliability-table", "p{4cm} l p{11.5cm}", "Context", "rq5/reliabilityTable", custom_order)
      
      
 # =======================
@@ -473,7 +473,7 @@ class Analysis:
             "Deployed Prototype",
             "Operational"
         ]
-        self.generate_summary_table("TRL", "TRL", "trl-table", "p{3.5cm} l p{15cm}", "TRL", "rq6/trlTable", custom_order)            
+        self.generate_summary_table("TRL", "TRL", "trl-table", "p{3.5cm} l p{12cm}", "TRL", "rq6/trlTable", custom_order)            
             
     def generate_structured_eval_table(self):
         df = self.df.copy()
@@ -508,7 +508,7 @@ class Analysis:
             "\\caption{Validation and evaluation approaches}",
             "\\label{tab:evaluation-structured-table}",
             "\\footnotesize",
-            "\\begin{tabular}{@{}p{4.0cm} l p{10cm}@{}}", 
+            "\\begin{tabular}{@{}p{4.0cm} l p{11cm}@{}}", 
             "\\toprule",
             "\\textbf{Evaluation Category} & \\textbf{Frequency} & \\textbf{Studies} \\\\",
             "\\midrule"
@@ -536,7 +536,7 @@ class Analysis:
 
         
     def contributionTypeTable(self):
-        self.generate_summary_table("Contribution type", "Contribution type", "contribution-type-table", "p{2cm} l p{15.5cm}", "Contribution", "rq6/contributionTypeTable")
+        self.generate_summary_table("Contribution type", "Contribution type", "contribution-type-table", "p{2cm} l p{13.5cm}", "Contribution", "rq6/contributionTypeTable")
                   
     def standardsTable(self, threshold=2):
         df = self.df.copy()
@@ -590,13 +590,13 @@ class Analysis:
             summary_df = summary_df.sort_values(by="Paper_Count", ascending=False)
 
         latex_table = self.generate_latex_table(
-            summary_df, "Standards", "standards-table", "p{6.5cm} l p{10cm}", "Standard"
+            summary_df, "Standards", "standards-table", "p{6.5cm} l p{9cm}", "Standard"
         )
         self.saveLatex("rq6/standards", latex_table)
 
         
     def dtOrSoSRelated(self):
-        self.generate_summary_table("Do The Studies Use Standards in More of an SoS or DT context", "Standards usage context (DT vs. SoS)", "dt-or-sos-related-table", "p{2cm} l p{15.5cm}", "Context", "rq6/dtOrSoSRelated")
+        self.generate_summary_table("Do The Studies Use Standards in More of an SoS or DT context", "Standards usage context (DT vs. SoS)", "dt-or-sos-related-table", "p{2cm} l p{13.5cm}", "Context", "rq6/dtOrSoSRelated")
         
         
 # =======================

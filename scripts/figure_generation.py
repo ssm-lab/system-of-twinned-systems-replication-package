@@ -1,5 +1,6 @@
 import argparse
-import datetime
+from datetime import datetime
+from itertools import cycle
 import os
 import warnings
 import numpy as np
@@ -30,7 +31,6 @@ class Analysis:
         2: "sosDimensions", # RQ4
         3: "trlVsContributionType", #RQ6
         4: "dtServices", #RQ3,
-        5: "plot_timeline_by_category"
     }
     
     def __init__(self):
@@ -372,7 +372,7 @@ class Analysis:
         counts.plot(ax=ax) 
 
         ax.set_xlabel("Publication year")
-        ax.set_ylabel("Count")
+        ax.set_ylabel("Frequency")
         ax.set_title(title or f"Counts per Year by SoTS Type", pad=12)
 
         ax.xaxis.set_major_locator(MultipleLocator(1))
