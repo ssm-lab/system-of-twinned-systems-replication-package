@@ -1,6 +1,8 @@
 import argparse
 from collections import defaultdict
 import os
+from matplotlib import pyplot as plt
+import numpy as np
 import pandas as pd
 
 __author__ = "Feyi Adesanya"
@@ -9,15 +11,15 @@ __license__ = "GPL-3.0"
 
 data_path = "data/Data extraction sheet.xlsx"
 results_path = "./output/tables"
+bar_charts_output = ""
+BAR_CHART_DIR = os.path.join(results_path, "bar_charts")
+
 
 class Analysis:
     observation_map = {
         1: "motivationsTable", #RQ1
         2: "intentsTable", #RQ1
         3: "domainsTable", #RQ1
-        4: "topologyExtractionTable", #RQ2
-        22: "spatialDistributionTable", #RQ2
-        5: "coordinationExtractionTable", #RQ2
         6: "constituentUnitsTable", #RQ2
         7: "autonomyTable", #RQ3
         9: "emergenceTable", #RQ4
@@ -63,6 +65,91 @@ class Analysis:
         df = df.sort_values(by=["Citation Order", "Citation Code"], kind="mergesort").reset_index(drop=True)
         df["Paper ID"] = [f"T{i+1:02d}" for i in range(len(df))]
         return df
+    
+
+# =======================
+# Bar Chart Generator
+# =======================    
+    def save_hbar_from_table(
+        self, summary_df, category_col, count_col="Paper_Count",
+        ylabel="", outfile="bar.pdf", bar_color="#89CFF0",
+        *, 
+        custom_order=None,                 
+        total_studies = 80,
+        bar_height=0.5, bar_gap=0,
+        top_pad=0, bottom_pad=0.35,
+        fig_width=6.0, label_fontsize=11.0, left_pad_extra=0.05
+    ):
+        if summary_df.empty:
+            os.makedirs(os.path.dirname(outfile), exist_ok=True)
+            return
+
+        df = summary_df[[category_col, count_col]].dropna(subset=[category_col]).copy()
+        df[count_col] = pd.to_numeric(df[count_col], errors="coerce").fillna(0).astype(int)
+
+        # ------------ ordering ------------
+        if custom_order:
+            ordered = list(custom_order)[::-1]
+            df[category_col] = pd.Categorical(df[category_col].astype(str),
+                                          categories=ordered,
+                                          ordered=True)
+            df = df.sort_values(by=[category_col], kind="mergesort").reset_index(drop=True)
+        else:
+            df = df.sort_values(by=count_col, ascending=False, kind="mergesort").reset_index(drop=True)
+
+
+        other_mask = df[category_col].astype(str).str.strip().str.casefold().eq("other")
+        if other_mask.any():
+            df = pd.concat([df.loc[other_mask], df.loc[~other_mask]], ignore_index=True)
+
+        # ------------ scaling ------------
+        total = total_studies
+        widths = df[count_col] / total
+        xlim = 1.0
+
+        labels = [
+            f"{str(cat)} — {cnt} ({cnt/total*100:.2f}%)"
+            for cat, cnt in zip(df[category_col], df[count_col])
+        ]
+
+        # ------------ layout ------------
+        n = len(df)
+        content_h = n * bar_height + max(0, n - 1) * bar_gap
+        fig_h = max(1.1, top_pad + content_h + bottom_pad)
+
+        fig, ax = plt.subplots(figsize=(fig_width, fig_h), constrained_layout=False)
+        y = np.arange(n) * 0.55
+
+        ax.barh(y, widths, height=bar_height, color=bar_color, edgecolor="none")
+
+        ax.set_yticks(y)
+        ax.set_yticklabels(labels)
+        ax.tick_params(axis="y", direction="out", pad=-8, length=0)
+        for t in ax.get_yticklabels():
+            t.set_ha("left")
+            t.set_fontsize(label_fontsize)
+
+        ax.set_xlim(0, xlim)
+        ax.tick_params(axis="x", which="both", bottom=False, top=False, labelbottom=False)
+        if n:
+            ax.set_ylim(y[0] - bar_height/2, y[-1] + bar_height/2)
+
+        ax.set_title(ylabel.title(), fontsize=12, loc="left", pad=0)
+        for s in ("top", "right", "bottom", "left"):
+            ax.spines[s].set_visible(False)
+
+
+        fig.tight_layout()
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+        max_tick_w_in = max((t.get_window_extent(renderer=renderer).width for t in ax.get_yticklabels()), default=0) / fig.dpi
+        left_frac = min(0.48, max(0.12, max_tick_w_in/fig_width + left_pad_extra))
+        plt.subplots_adjust(left=left_frac, right=0.98, top=1 - top_pad/fig_h, bottom=bottom_pad/fig_h)
+
+        os.makedirs(os.path.dirname(outfile), exist_ok=True)
+        fig.savefig(outfile, dpi=300, bbox_inches="tight")
+        plt.close(fig)
+
 
 
 # =======================
@@ -110,9 +197,25 @@ class Analysis:
 
         latex_table = self.generate_latex_table(summary_df, caption, label, tabular_size, first_column_name)
         self.saveLatex(f"{save_location}", latex_table)
-        
+
+        chart_name = save_location.replace(" ", "_").replace("-", "_") + ".pdf"
+        chart_outfile = os.path.join(BAR_CHART_DIR, chart_name)
+
+        # y-label = caption; category = the grouping column you passed in
+        self.save_hbar_from_table(
+            summary_df=summary_df,
+            category_col=column,
+            count_col="Paper_Count",
+            ylabel=caption,
+            outfile=chart_outfile,
+            custom_order=custom_order
+        )
+                
     # For tables with multiple items per row seperated by a delimiter
-    def generate_delimiter_table(self, column, caption, label, tabular_size, first_column_name, save_location, delimiter=","):
+    def generate_delimiter_table(
+        self, column, caption, label, tabular_size, first_column_name, save_location,
+        delimiter=",", custom_order=None  # <-- NEW
+    ):
         df = self.df.copy()
         citation_column = "Citation Code"
         rows = []
@@ -121,7 +224,6 @@ class Analysis:
             main_values = row[column]
             if pd.isna(main_values):
                 continue
-            # Split values and strip whitespace
             main_values_list = [s.strip() for s in str(main_values).split(delimiter) if s.strip()]
             for val in main_values_list:
                 rows.append({
@@ -130,26 +232,44 @@ class Analysis:
                     "Citation Code": row[citation_column] if citation_column in row else None
                 })
 
-        # Create an exploded DataFrame
         exploded_df = pd.DataFrame(rows)
 
-        # Group by unique values and aggregate the number of studies and citations
         summary_df = exploded_df.groupby("Value").agg(
             Paper_Count=("Paper ID", "nunique"),
-            Citations=(citation_column, lambda x: ", ".join([f"\\cite{{{cite}}}" 
-                                                            for cite in x.dropna().unique()]) 
-                                            if not x.dropna().empty else "\\cite{placeholder}")
+            Citations=(citation_column, lambda x: ", ".join([f"\\cite{{{cite}}}"
+                                                            for cite in x.dropna().unique()])
+                                        if not x.dropna().empty else "\\cite{placeholder}")
         ).reset_index()
 
-        # Sort by Paper_Count in descending order
-        summary_df = summary_df.sort_values(by="Paper_Count", ascending=False)
+        # Apply optional custom order, else sort by count desc
+        if custom_order:
+            summary_df["Value"] = pd.Categorical(summary_df["Value"], categories=custom_order, ordered=True)
+            summary_df = summary_df.sort_values(by="Value", kind="mergesort").reset_index(drop=True)
+        else:
+            summary_df = summary_df.sort_values(by="Paper_Count", ascending=False, kind="mergesort")
 
-        # Generate LaTeX table
+        # LaTeX
         latex_table = self.generate_latex_table(summary_df, caption, label, tabular_size, first_column_name)
         self.saveLatex(save_location, latex_table)
+
+        # ---- NEW: save bar chart ----
+        chart_name = save_location.replace(" ", "_").replace("-", "_") + ".pdf"
+        chart_outfile = os.path.join(BAR_CHART_DIR, chart_name)
+        self.save_hbar_from_table(
+            summary_df=summary_df,
+            category_col="Value",
+            count_col="Paper_Count",
+            ylabel=caption,
+            outfile=chart_outfile,
+            custom_order=custom_order,  
+        )
+
         
     # for tables with multiple items per row and need an other category based on a frequency threshold
-    def generate_other_cat_table(self, group_by_col, latex_caption, latex_label, latex_tabular_size, latex_first_column, latex_filename, delimiter=", ", threshold=2, custom_order=None):
+    def generate_other_cat_table(
+    self, group_by_col, latex_caption, latex_label, latex_tabular_size, latex_first_column,
+    latex_filename, delimiter=", ", threshold=2, custom_order=None
+    ):
         df = self.df.copy()
         citation_col = "Citation Code"
         count_col = "Paper ID"
@@ -187,10 +307,12 @@ class Analysis:
 
         mask = summary_df["Paper_Count"] <= threshold
 
-        # Prepare "Other" category if needed
         other_row = None
         if mask.any() and not mask.all():
-            other_citations = exploded_df.loc[exploded_df[group_by_col].isin(summary_df[mask][group_by_col]), citation_col]
+            other_citations = exploded_df.loc[
+                exploded_df[group_by_col].isin(summary_df[mask][group_by_col]),
+                citation_col
+            ]
             other_row = {
                 group_by_col: "Other",
                 "Paper_Count": other_citations.nunique(),
@@ -200,18 +322,34 @@ class Analysis:
 
         # Apply ordering
         if custom_order:
-            summary_df[group_by_col] = pd.Categorical(summary_df[group_by_col], categories=custom_order, ordered=True)
-            summary_df = summary_df.sort_values(by=group_by_col)
+            summary_df[group_by_col] = pd.Categorical(summary_df[group_by_col],
+                                                    categories=custom_order, ordered=True)
+            summary_df = summary_df.sort_values(by=group_by_col, kind="mergesort")
         else:
-            summary_df = summary_df.sort_values(by="Paper_Count", ascending=False)
+            summary_df = summary_df.sort_values(by="Paper_Count", ascending=False, kind="mergesort")
 
-        # Add "Other" row at the bottom
-        if other_row:
+        # Add "Other" last (table view)
+        if other_row is not None:
             summary_df = pd.concat([summary_df, pd.DataFrame([other_row])], ignore_index=True)
 
-        # Generate and save LaTeX table
-        latex_table = self.generate_latex_table(summary_df, latex_caption, latex_label, latex_tabular_size, latex_first_column)
+        # LaTeX
+        latex_table = self.generate_latex_table(
+            summary_df, latex_caption, latex_label, latex_tabular_size, latex_first_column
+        )
         self.saveLatex(latex_filename, latex_table)
+
+        # ---- NEW: save bar chart ----
+        chart_name = latex_filename.replace(" ", "_").replace("-", "_") + ".pdf"
+        chart_outfile = os.path.join(BAR_CHART_DIR, chart_name)
+
+        self.save_hbar_from_table(
+            summary_df=summary_df,
+            category_col=group_by_col,
+            count_col="Paper_Count",
+            ylabel=latex_caption,
+            outfile=chart_outfile,
+            custom_order=custom_order,        
+        )
 
 
             
@@ -374,15 +512,6 @@ class Analysis:
 # =======================
 # RQ 2
 # =======================
-    def topologyExtractionTable(self):        
-        self.generate_summary_table("Topology of DT/PT (Cleaned)", "Topologies", "topology-table", "p{2.5cm} l p{13cm}", "Topology", "rq2/topologyExtractionTable")
-
-    def spatialDistributionTable(self):
-        self.generate_summary_table("Spatial Distribution", "Spatial distribution", "spatial-distribution-table", "p{3.5cm} l p{12cm}", "Distribution", "rq2/spatialDistributionTable")
-        
-    def coordinationExtractionTable(self):
-        self.generate_summary_table("Coordination (Cleaned)", "Coordination", "coordination-table", "p{3.5cm} l p{12cm}", "Coordination", "rq2/coordinationExtractionTable")
-    
     def constituentUnitsTable(self):
         self.generate_summary_table("Constituent unit (higher level aggregation)", "Constituent units", "constituent-units-table", "p{5cm} l p{10.5cm}", "Constituent Unit", "rq2/constituentUnitsTable")
         
@@ -534,65 +663,20 @@ class Analysis:
 
         self.saveLatex("rq6/hierarchicalEvaluationTable", "\n".join(latex_lines))
 
-        
     def contributionTypeTable(self):
         self.generate_summary_table("Contribution type", "Contribution type", "contribution-type-table", "p{2cm} l p{13.5cm}", "Contribution", "rq6/contributionTypeTable")
                   
     def standardsTable(self, threshold=2):
-        df = self.df.copy()
-        standards_column = "Standards Used (Cleaned Up)"
-        citation_column = "Citation Code"
-
-        # Preserve encounter order (df is already sorted by "Citation Order")
-        def format_citations(citations):
-            s = pd.Series(citations).dropna().drop_duplicates(keep="first")
-            return ", ".join(f"\\cite{{{c}}}" for c in s) if not s.empty else "\\cite{placeholder}"
-
-        # explode rows: one row per (Standard, Paper)
-        rows = [
-            {
-                "Standard": std.strip(),
-                "Paper ID": row["Paper ID"],
-                "Citation Code": row[citation_column],
-            }
-            for _, row in df.iterrows() if pd.notna(row.get(standards_column))
-            for std in str(row[standards_column]).split(";") if std.strip()
-        ]
-        exploded_df = pd.DataFrame(rows)
-
-        # Aggregate by standard (citations kept in encounter order)
-        summary_df = exploded_df.groupby("Standard", sort=False).agg(
-            Paper_Count=("Paper ID", "nunique"),
-            Citations=(citation_column, lambda x: format_citations(x))
-        ).reset_index()
-
-        # Build "Other" bucket for low-frequency standards (<= threshold)
-        mask = summary_df["Paper_Count"] <= threshold
-        if mask.any() and not mask.all():
-            low_standards = summary_df.loc[mask, "Standard"]
-            low_df = exploded_df[exploded_df["Standard"].isin(low_standards)]
-
-            other_paper_count = low_df["Paper ID"].nunique()  # count papers
-            other_citations = format_citations(low_df[citation_column])
-
-            # keep main standards sorted by Paper_Count desc
-            summary_df = summary_df.loc[~mask].sort_values(by="Paper_Count", ascending=False)
-
-            summary_df = pd.concat([
-                summary_df,
-                pd.DataFrame([{
-                    "Standard": "Other",
-                    "Paper_Count": other_paper_count,
-                    "Citations": other_citations
-                }])
-            ], ignore_index=True)
-        else:
-            summary_df = summary_df.sort_values(by="Paper_Count", ascending=False)
-
-        latex_table = self.generate_latex_table(
-            summary_df, "Standards", "standards-table", "p{6.5cm} l p{9cm}", "Standard"
-        )
-        self.saveLatex("rq6/standards", latex_table)
+        self.generate_other_cat_table(
+            group_by_col="Standards Used (Cleaned Up)",
+            latex_caption="Standards",
+            latex_label="standards-table",
+            latex_tabular_size="p{6.5cm} l p{9cm}",
+            latex_first_column="Standard",
+            latex_filename="rq6/standards",
+            delimiter=";",             
+            threshold=threshold,
+            )
 
         
     def dtOrSoSRelated(self):
