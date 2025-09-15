@@ -70,6 +70,18 @@ class Analysis:
 # =======================
 # Bar Chart Generator
 # =======================    
+
+    def custom_title(self, s, overrides={"dt": "DT", "dt)":"DT)", "(dt":"(DT", "trl": "TRL", "sos": "SoS", "(sos":"(SoS",  "sos)":"SoS)", "sots": "SoTS"}):
+        words = s.split()
+        out = []
+        for w in words:
+            lw = w.lower()
+            if lw in overrides:
+                out.append(overrides[lw])
+            else:
+                out.append(w.capitalize())
+        return " ".join(out)
+
     def save_hbar_from_table(
         self, summary_df, category_col, count_col="Paper_Count",
         ylabel="", outfile="bar.pdf", bar_color="#89CFF0",
@@ -134,7 +146,7 @@ class Analysis:
         if n:
             ax.set_ylim(y[0] - bar_height/2, y[-1] + bar_height/2)
 
-        ax.set_title(ylabel.title(), fontsize=12, loc="left", pad=0)
+        ax.set_title(self.custom_title(ylabel), fontsize=12, loc="left", pad=0)
         for s in ("top", "right", "bottom", "left"):
             ax.spines[s].set_visible(False)
 
@@ -252,7 +264,6 @@ class Analysis:
         latex_table = self.generate_latex_table(summary_df, caption, label, tabular_size, first_column_name)
         self.saveLatex(save_location, latex_table)
 
-        # ---- NEW: save bar chart ----
         chart_name = save_location.replace(" ", "_").replace("-", "_") + ".pdf"
         chart_outfile = os.path.join(BAR_CHART_DIR, chart_name)
         self.save_hbar_from_table(
@@ -338,7 +349,6 @@ class Analysis:
         )
         self.saveLatex(latex_filename, latex_table)
 
-        # ---- NEW: save bar chart ----
         chart_name = latex_filename.replace(" ", "_").replace("-", "_") + ".pdf"
         chart_outfile = os.path.join(BAR_CHART_DIR, chart_name)
 
@@ -418,8 +428,6 @@ class Analysis:
         latex_lines += ["\\bottomrule", "\\end{tabular}", "\\end{table*}"]
         self.saveLatex(filename, "\n".join(latex_lines))
 
-
-        
         
 # =======================
 # RQ 1 
