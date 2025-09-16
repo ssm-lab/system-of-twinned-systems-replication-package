@@ -48,6 +48,7 @@ class Analysis:
         2: "sosDimensions", # RQ4
         3: "trlVsContributionType", #RQ6
         4: "dtServices", #RQ3,
+        5: "plot_timeline_by_category",
     }
     
     def __init__(self):
@@ -374,25 +375,29 @@ class Analysis:
         ordered_cols = ["Directed SoTS", "Acknowledged SoTS", "Collaborative SoTS", "Virtual SoTS"]
         counts = counts.reindex(columns=ordered_cols, fill_value=0)
 
+
+        # Colours
+        palette = [
+            colour_coding["red"],  
+            colour_coding["blue"], 
+            colour_coding["green"],
+            colour_coding["orange"],
+        ]
+        
         # Plot
         fig, ax = plt.subplots(figsize=(11, 5.5))
-        counts.plot(ax=ax) 
+        counts.plot(ax=ax, color=palette) 
 
         ax.set_xlabel("Publication year")
         ax.set_ylabel("Frequency")
-        ax.set_title(title or f"Counts per Year by SoTS Type", pad=12)
+        ax.set_title(title or f"Studies per Year by SoTS Type", pad=12)
 
         ax.xaxis.set_major_locator(MultipleLocator(1))
         ax.grid(True, which="both", axis="y", linewidth=0.5, alpha=0.4)
         ax.grid(True, which="major", axis="x", linewidth=0.3, alpha=0.2)
 
-        handles, labels = ax.get_legend_handles_labels()
-        if len(labels) > 6:
-            ax.legend(loc="center left", bbox_to_anchor=(1.0, 0.5), title=None)
-            fig.tight_layout(rect=[0, 0, 0.86, 1])
-        else:
-            ax.legend(title=None)
-            fig.tight_layout()
+        ax.legend(title=None, fontsize=13)
+        fig.tight_layout()
 
         self.savefig("timeline_by_sots_category")
 
