@@ -124,7 +124,8 @@ class Analysis:
                                           ordered=True)
             df = df.sort_values(by=[category_col], kind="mergesort").reset_index(drop=True)
         else:
-            df = df.sort_values(by=count_col, ascending=False, kind="mergesort").reset_index(drop=True)
+            # Highest amount at the top moving downwards
+            df = df.sort_values(by=count_col, ascending=True, kind="mergesort").reset_index(drop=True)
 
 
         other_mask = df[category_col].astype(str).str.strip().str.casefold().eq("other")
