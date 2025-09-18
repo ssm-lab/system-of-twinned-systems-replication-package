@@ -723,64 +723,96 @@ class Analysis:
         ]
         self.generate_summary_table("TRL", "TRL", "trl-table", "p{3.5cm} l p{12cm}", "TRL", "rq6/trlTable", custom_order)            
             
-    def generate_structured_eval_table(self):
+    def generate_structured_eval_table(self, threshold=1, latex_friendly_names=None):
         df = self.df.copy()
         eval_col = "Evaluation"
         expanded_col = "Eval/Val Expanded"
         citation_col = "Citation Code"
 
         hierarchy = {}
-
         for _, row in df.iterrows():
-            eval_type = str(row[eval_col]).title() if pd.notna(row[eval_col]) else None
-            if pd.isna(eval_type):
+            eval_type = str(row[eval_col]).strip().title() if pd.notna(row[eval_col]) else None
+            if not eval_type:
                 continue
-
-            expanded_items = [s.strip().title() for s in str(row[expanded_col]).split(",") if s.strip()]
-            citation = row[citation_col]
-
+            expanded_items = [s.strip().title()
+                            for s in str(row[expanded_col]).split(",")
+                            if pd.notna(row[expanded_col]) and s.strip()]
+            cite = row.get(citation_col)
             if eval_type not in hierarchy:
                 hierarchy[eval_type] = {}
-
-            for item in expanded_items:
+            for item in expanded_items or ["(Unspecified)"]:
                 if item not in hierarchy[eval_type]:
                     hierarchy[eval_type][item] = set()
-                if pd.notna(citation):
-                    hierarchy[eval_type][item].add(citation)
+                if pd.notna(cite):
+                    hierarchy[eval_type][item].add(cite)
 
-        # Start LaTeX table
+        # Sort categories by total unique citations
+        category_totals = []
+        for cat, sub in hierarchy.items():
+            total_cites = set().union(*sub.values()) if sub else set()
+            category_totals.append((cat, len(total_cites)))
+        sorted_categories = sorted(category_totals, key=lambda x: x[1], reverse=True)
+
+        caption = "Validation and evaluation approaches"
+        label = "evaluation-structured-table"
         latex_lines = [
             "\\begin{table*}[]",
             "\\centering",
             "\\setlength{\\tabcolsep}{1em}",
-            "\\caption{Validation and evaluation approaches}",
-            "\\label{tab:evaluation-structured-table}",
+            f"\\caption{{{caption}}}",
+            f"\\label{{tab:{label}}}",
             "\\footnotesize",
-            "\\begin{tabular}{@{}p{4.0cm} l p{11cm}@{}}", 
+            "\\begin{tabular}{@{}p{5cm} l p{10cm}@{}}",
             "\\toprule",
             "\\textbf{Evaluation Category} & \\textbf{Frequency} & \\textbf{Studies} \\\\",
             "\\midrule"
         ]
 
-        for eval_type, submethods in hierarchy.items():
-            total_cites = set().union(*submethods.values())
-            total_count = len(total_cites)
-            # Top-level row: no citations
-            latex_lines.append(f"\\textbf{{{eval_type}}} & \\textbf{{\maindatabar{{{total_count}}}}} & \\\\")
+        # Rows for hierarchical bar chart
+        rows = []
 
-            # Submethods with citations
-            for method, citations in sorted(submethods.items(), key=lambda item: len(item[1]), reverse=True):
-                count = len(citations)
-                citation_str = ", ".join(f"\\cite{{{c}}}" for c in sorted(citations))
-                latex_lines.append(f"\\;\;\\corner{{}} {method} & \subdatabar{{{count}}} & {citation_str} \\\\")
+        for category, _total in sorted_categories:
+            submethods = hierarchy.get(category, {})
+            if not submethods:
+                continue
 
-        latex_lines.extend([
-            "\\bottomrule",
-            "\\end{tabular}",
-            "\\end{table*}"
-        ])
+            # Split by threshold
+            above = {k: v for k, v in submethods.items() if len(v) >= threshold}
+            below = {k: v for k, v in submethods.items() if len(v) < threshold}
 
+            # Top-level row (category total)
+            top_total = len(set().union(*submethods.values())) if submethods else 0
+            cat_label = (latex_friendly_names or {}).get(category, category)
+            latex_lines.append(f"\\textbf{{{cat_label}}} & \\textbf{{\\maindatabar{{{top_total}}}}} & \\\\")
+            rows.append({"level": "top", "label": cat_label, "count": top_total, "group": category})
+
+            # Submethods (sorted by count desc)
+            for method, cites in sorted(above.items(), key=lambda kv: len(kv[1]), reverse=True):
+                cnt = len(cites)
+                citation_str = ", ".join(f"\\cite{{{c}}}" for c in sorted(cites))
+                latex_lines.append(f"\\;\\;\\corner{{}} {method} & \\subdatabar{{{cnt}}} & {citation_str} \\\\")
+                rows.append({"level": "sub", "label": method, "count": cnt, "group": category})
+
+            # Other bucket (always last)
+            if below:
+                other_cites = set().union(*below.values())
+                cnt = len(other_cites)
+                citation_str = ", ".join(f"\\cite{{{c}}}" for c in sorted(other_cites))
+                latex_lines.append(f"\\;\\;\\corner{{}} \\textit{{Other}} & \\subdatabar{{{cnt}}} & {citation_str} \\\\")
+                rows.append({"level": "sub", "label": "Other", "count": cnt, "group": category, "is_other": True})
+
+        latex_lines += ["\\bottomrule", "\\end{tabular}", "\\end{table*}"]
         self.saveLatex("rq6/hierarchicalEvaluationTable", "\n".join(latex_lines))
+
+        chart_outfile = os.path.join(BAR_CHART_DIR, "rq6_hierarchicalEvaluationTable.pdf")
+        os.makedirs(os.path.dirname(chart_outfile), exist_ok=True)
+        total_studies = self.df["Paper ID"].nunique()
+        self.save_hierarchical_hbar(
+            rows=rows,
+            ylabel=caption,
+            outfile=chart_outfile,
+            total_studies=total_studies
+        )
 
     def contributionTypeTable(self):
         self.generate_summary_table("Contribution type", "Contribution type", "contribution-type-table", "p{2cm} l p{13.5cm}", "Contribution", "rq6/contributionTypeTable")
