@@ -5,7 +5,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
 import matplotlib as mpl
-
+from matplotlib import transforms as mtransforms
 
 mpl.rcParams.update({
     "font.family": "serif",
@@ -107,7 +107,7 @@ class Analysis:
         bar_height=0.2,
         pad_between_bars = 0.28,
         top_pad=0, bottom_pad=0,
-        fig_width=3, label_fontsize=9.0, left_pad_extra=0.05
+        fig_width=3, label_fontsize=9.0
     ):
         if summary_df.empty:
             os.makedirs(os.path.dirname(outfile), exist_ok=True)
@@ -116,7 +116,7 @@ class Analysis:
         df = summary_df[[category_col, count_col]].dropna(subset=[category_col]).copy()
         df[count_col] = pd.to_numeric(df[count_col], errors="coerce").fillna(0).astype(int)
 
-        # ------------ ordering ------------
+
         if custom_order:
             ordered = list(custom_order)[::-1]
             df[category_col] = pd.Categorical(df[category_col].astype(str),
@@ -132,7 +132,7 @@ class Analysis:
         if other_mask.any():
             df = pd.concat([df.loc[other_mask], df.loc[~other_mask]], ignore_index=True)
 
-        # ------------ scaling ------------
+
         total = total_studies
         widths = df[count_col] / total
         xlim = 1.0
@@ -142,7 +142,6 @@ class Analysis:
             for cat, cnt in zip(df[category_col], df[count_col])
         ]
 
-        # ------------ layout ------------
         n = len(df)
         content_h = n * bar_height + max(0, n - 1) * 0.025
         fig_h = max(1.1, top_pad + content_h + bottom_pad)
@@ -173,13 +172,88 @@ class Analysis:
         fig.canvas.draw()
         renderer = fig.canvas.get_renderer()
         max_tick_w_in = max((t.get_window_extent(renderer=renderer).width for t in ax.get_yticklabels()), default=0) / fig.dpi
-        left_frac = min(0.48, max(0.12, max_tick_w_in/fig_width + left_pad_extra))
-        # plt.subplots_adjust(left=left_frac, right=0.98, top=1 - top_pad/fig_h, bottom=bottom_pad/fig_h)
-        # plt.subplots_adjust(left=0.25, right=0.3, top=0.95, bottom=0.08)
 
 
         os.makedirs(os.path.dirname(outfile), exist_ok=True)
         fig.savefig(outfile, dpi=300, bbox_inches="tight")
+        plt.close(fig)
+
+
+    def save_hierarchical_hbar(
+        self,
+        rows,
+        ylabel,
+        outfile,
+        *,
+        total_studies=80,
+        fig_width=3.6,
+        bar_height_top=0.22,
+        bar_height_sub=0.18,
+        gap_between_rows=0.28,
+        sub_alpha=0.55, # colouring for sub-level bars
+        bar_color="#89CFF0",
+        label_fontsize=9.0,
+        title_x=0.02,    
+        indent_sub=0.06,   
+        title_pad=0.01       
+    ):
+        
+        n = len(rows)
+        content_h = n * bar_height_sub + 0.02 * max(0, n - 1)
+        fig_h = max(1.0, content_h + 0.1)
+
+        fig, ax = plt.subplots(figsize=(fig_width, fig_h))
+
+
+        # row settings
+        y = np.arange(n) * gap_between_rows
+        total = float(total_studies) if total_studies else float(max(1, sum(r["count"] for r in rows)))
+        widths = [r["count"]/total for r in rows]
+        heights = [bar_height_top if r["level"] == "top" else bar_height_sub for r in rows]
+        alphas  = [1.0 if r["level"] == "top" else sub_alpha for r in rows]
+
+        # Bars
+        for yy, w, h, a in zip(y, widths, heights, alphas):
+            ax.barh(yy, w, height=h, color=bar_color, edgecolor="none", alpha=a)
+
+        ax.set_yticks(y)
+        ax.set_yticklabels([])
+        ax.tick_params(axis="y", length=0)
+
+        ax.margins(x=0, y=0)
+        top_edge    = y[0] - heights[0]
+        bottom_edge = y[-1] + heights[-1]
+        ax.set_ylim(top_edge, bottom_edge)
+
+        # Fixed x positions in axes fraction for labels
+        txt_trans = mtransforms.blended_transform_factory(ax.transAxes, ax.transData)
+        x_top = title_x
+        x_sub = title_x + indent_sub
+
+        # labels
+        for yy, w, r in zip(y, widths, rows):
+            pct = (r["count"]/total*100 if total else 0.0)
+            label = f"{r['label']} — {r['count']} ({pct:.2f}%)"
+            x_here = x_top if r["level"] == "top" else x_sub
+            ax.text(
+                x_here, yy, label.replace("\\&", "&"),
+                transform=txt_trans, va="center", ha="left",
+                fontsize=label_fontsize, color="black", clip_on=False
+            )
+
+        ax.set_title(self.custom_title(ylabel), fontsize=10, pad=title_pad)
+
+        ax.set_xlim(0, 1.0)
+        ax.tick_params(axis="x", which="both", bottom=False, top=False, labelbottom=False)
+        ax.invert_yaxis()
+        for i, r in enumerate(rows):
+            if r["level"] == "top" and i > 0:
+                ax.hlines(y[i] - gap_between_rows/2, 0, 1.0, lw=0.4, color="0.85")
+        for s in ("top", "right", "bottom", "left"):
+            ax.spines[s].set_visible(False)
+
+        os.makedirs(os.path.dirname(outfile), exist_ok=True)
+        fig.savefig(outfile, dpi=600, bbox_inches="tight")
         plt.close(fig)
 
 
@@ -233,7 +307,6 @@ class Analysis:
         chart_name = save_location.replace(" ", "_").replace("-", "_") + ".pdf"
         chart_outfile = os.path.join(BAR_CHART_DIR, chart_name)
 
-        # y-label = caption; category = the grouping column you passed in
         self.save_hbar_from_table(
             summary_df=summary_df,
             category_col=column,
@@ -246,7 +319,7 @@ class Analysis:
     # For tables with multiple items per row seperated by a delimiter
     def generate_delimiter_table(
         self, column, caption, label, tabular_size, first_column_name, save_location,
-        delimiter=",", custom_order=None  # <-- NEW
+        delimiter=",", custom_order=None
     ):
         df = self.df.copy()
         citation_column = "Citation Code"
@@ -349,9 +422,9 @@ class Analysis:
                 "Paper_Count": other_citations.nunique(),
                 "Citations": format_citations(other_citations)
             }
-            summary_df = summary_df[~mask]  # remove small categories
+            summary_df = summary_df[~mask] 
 
-        # Apply ordering
+       
         if custom_order:
             summary_df[group_by_col] = pd.Categorical(summary_df[group_by_col],
                                                     categories=custom_order, ordered=True)
@@ -359,7 +432,7 @@ class Analysis:
         else:
             summary_df = summary_df.sort_values(by="Paper_Count", ascending=False, kind="mergesort")
 
-        # Add "Other" last (table view)
+        # Add "Other" last (
         if other_row is not None:
             summary_df = pd.concat([summary_df, pd.DataFrame([other_row])], ignore_index=True)
 
@@ -401,7 +474,6 @@ class Analysis:
                     if pd.notna(citation):
                         hierarchy[category][method]["citations"].add(citation)
 
-        # Start building LaTeX
         latex_lines = [
             "\\begin{table*}[]",
             "\\centering",
@@ -409,44 +481,63 @@ class Analysis:
             f"\\caption{{{caption}}}",
             f"\\label{{tab:{label}}}",
             "\\footnotesize",
-            "\\begin{tabular}{@{}p{5cm} l p{10cm}@{}}", 
+            "\\begin{tabular}{@{}p{5cm} l p{10cm}@{}}",
             "\\toprule",
             f"\\textbf{{{column_label}}} & \\textbf{{Frequency}} & \\textbf{{Studies}} \\\\",
             "\\midrule"
         ]
 
+        rows = [] 
 
         category_totals = []
         for category in category_list:
             submethods = hierarchy.get(category, {})
-            all_citations = set().union(*(v["citations"] for v in submethods.values()))
+            all_citations = set().union(*(v["citations"] for v in submethods.values())) if submethods else set()
             category_totals.append((category, len(all_citations)))
-            
+
         sorted_categories = sorted(category_totals, key=lambda x: x[1], reverse=True)
         for category, total_cites in sorted_categories:
             submethods = hierarchy.get(category, {})
             if not submethods:
                 continue
 
-            above = {k: v for k, v in submethods.items() if v["count"] >= threshold}
-            below = {k: v for k, v in submethods.items() if v["count"] < threshold}
+            above = {k: v for k, v in submethods.items() if len(v["citations"]) >= threshold}
+            below = {k: v for k, v in submethods.items() if len(v["citations"]) < threshold}
 
             label_name = latex_friendly_names.get(category, category) if latex_friendly_names else category
             latex_lines.append(f"\\textbf{{{label_name}}} & \\textbf{{\\maindatabar{{{total_cites}}}}} & \\\\")
+  
+            rows.append({"level":"top","label":label_name,"count":total_cites,"group":category})
 
             for method, data in sorted(above.items(), key=lambda item: len(item[1]["citations"]), reverse=True):
                 count = len(data["citations"])
                 cites = ", ".join(f"\\cite{{{c}}}" for c in sorted(data["citations"]))
                 latex_lines.append(f"\\;\\;\\corner{{}} {method} & \\subdatabar{{{count}}} & {cites} \\\\")
+   
+                rows.append({"level":"sub","label":method,"count":count,"group":category})
 
             if below:
                 all_below_cites = set().union(*[v["citations"] for v in below.values()])
                 count = len(all_below_cites)
                 cites = ", ".join(f"\\cite{{{c}}}" for c in sorted(all_below_cites))
                 latex_lines.append(f"\\;\\;\\corner{{}} \\textit{{Other}} & \\subdatabar{{{count}}} & {cites} \\\\")
+           
+                rows.append({"level":"sub","label":"Other","count":count,"group":category,"is_other":True})
 
         latex_lines += ["\\bottomrule", "\\end{tabular}", "\\end{table*}"]
         self.saveLatex(filename, "\n".join(latex_lines))
+
+   
+        chart_name = filename.replace(" ", "_").replace("-", "_") + ".pdf"
+        chart_outfile = os.path.join(BAR_CHART_DIR, chart_name)
+        total_studies = self.df["Paper ID"].nunique()
+        self.save_hierarchical_hbar(
+            rows=rows,
+            ylabel=caption,
+            outfile=chart_outfile,
+            total_studies=total_studies
+        )
+
 
         
 # =======================

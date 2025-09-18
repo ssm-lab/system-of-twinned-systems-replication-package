@@ -12,16 +12,16 @@ import json
 from upsetplot import UpSet, from_memberships
 import matplotlib as mpl
 
-
+base_font_size = 9
 mpl.rcParams.update({
     "font.family": "serif",
     "font.serif": ["Times New Roman", "Times", "DejaVu Serif"],
-    "font.size": 13,     
-    "axes.titlesize": 14,
-    "axes.labelsize": 13,
-    "xtick.labelsize": 13,
-    "ytick.labelsize": 13,
-    "legend.fontsize": 13,   
+    "font.size": base_font_size,     
+    "axes.titlesize": base_font_size + 1,
+    "axes.labelsize": base_font_size,
+    "xtick.labelsize": base_font_size - 1,
+    "ytick.labelsize": base_font_size - 1,
+    "legend.fontsize": base_font_size - 1,   
     "mathtext.fontset": "cm",                
     "mathtext.rm": "serif",                  
 })
@@ -325,6 +325,7 @@ class Analysis:
                                 fontsize=18)
 
         ax.set_ylabel("Number of Papers", fontsize=18)
+        ax.set_xlabel("Contribution Type", fontsize=18)
         ax.tick_params(axis='y', labelsize=18)
         ax.set_xticks(x)
         
@@ -349,11 +350,11 @@ class Analysis:
 # =======================   
     def plot_timeline_by_category(
         self,
-        category_col: str = "SoTS Classification",
-        year_col: str = "Publication year",
-        title: str | None = None,
-        min_year: int | None = None,
-        max_year: int | None = 2023,
+        category_col = "SoTS Classification",
+        year_col = "Publication year",
+        title = None,
+        min_year = None,
+        max_year = 2023,
         ):
 
         df = self.df.dropna(subset=[year_col, category_col]).copy()
@@ -385,19 +386,20 @@ class Analysis:
         ]
         
         # Plot
-        fig, ax = plt.subplots(figsize=(11, 5.5))
+        fig, ax = plt.subplots(figsize=(3.45, 2.3))
         counts.plot(ax=ax, color=palette) 
 
-        ax.set_xlabel("Publication year")
-        ax.set_ylabel("Frequency")
-        ax.set_title(title or f"Studies per Year by SoTS Type", pad=12)
-
+        font_size_default = 10
+        ax.set_xlabel("Publication Year", fontsize=font_size_default)
+        ax.set_ylabel("Frequency", fontsize=font_size_default)
+        ax.set_title(title or f"Studies per Year by SoTS Type", pad=5, fontsize=font_size_default)
+        ax.tick_params(axis='both', labelsize=font_size_default-1)
         ax.xaxis.set_major_locator(MultipleLocator(1))
         ax.grid(True, which="both", axis="y", linewidth=0.5, alpha=0.4)
         ax.grid(True, which="major", axis="x", linewidth=0.3, alpha=0.2)
 
-        ax.legend(title=None, fontsize=13)
-        fig.tight_layout()
+        ax.legend(title=None, fontsize=font_size_default-2)
+        # fig.tight_layout()
 
         self.savefig("timeline_by_sots_category")
 
@@ -419,7 +421,7 @@ class Analysis:
             if existing_file.startswith(filename):
                 os.remove(os.path.join(folder_path, existing_file))
 
-        plt.savefig(file_path, dpi=900)  
+        plt.savefig(file_path, dpi=600, bbox_inches="tight")  
         plt.close()
         
     def saveLatex(self, func_name, html_content):
