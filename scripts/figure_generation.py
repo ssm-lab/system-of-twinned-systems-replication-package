@@ -12,6 +12,11 @@ import json
 from upsetplot import UpSet, from_memberships
 import matplotlib as mpl
 
+import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib.sankey import Sankey
+import plotly.graph_objects as go
+
 base_font_size = 9
 mpl.rcParams.update({
     "font.family": "serif",
@@ -49,6 +54,7 @@ class Analysis:
         3: "trlVsContributionType", #RQ6
         4: "dtServices", #RQ3,
         5: "plot_timeline_by_category",
+        6: "plot_ISO_vs_SoS_dim",
     }
     
     def __init__(self):
@@ -402,6 +408,87 @@ class Analysis:
         # fig.tight_layout()
 
         self.savefig("timeline_by_sots_category")
+
+
+    def plot_ISO_vs_SoS_dim(self):
+        df = pd.read_excel("data/ISO_DT_map_SoS.xlsx")
+        flows = df.groupby(["SoS Property", "DT Requirement"]).size().reset_index(name="value")
+
+        labels_left = flows["SoS Property"].unique().tolist()
+        labels_right = flows["DT Requirement"].unique().tolist()
+
+        left_index = {name: i for i, name in enumerate(labels_left)}
+        right_index = {name: i + len(labels_left) for i, name in enumerate(labels_right)}
+
+        flow_sources = [left_index[row["SoS Property"]] for _, row in flows.iterrows()]
+        flow_targets = [right_index[row["DT Requirement"]] for _, row in flows.iterrows()]
+        flow_values  = [row["value"] for _, row in flows.iterrows()]
+
+        # SoS node colors
+        sos_colors = [
+            "#4C72B0", "#55A868", "#C44E52", "#8172B2",
+            "#CCB974", "#64B5CD", "#FF8C61", "#E7298A"
+        ][:len(labels_left)]
+
+        sos_link_colors = [
+            "rgba(76,114,176,0.5)",
+            "rgba(85,168,104,0.5)",
+            "rgba(196,78,82,0.5)",
+            "rgba(129,114,178,0.5)",
+            "rgba(204,185,116,0.5)",
+            "rgba(100,181,205,0.5)",
+            "rgba(255,140,97,0.5)",
+            "rgba(231,41,138,0.5)"
+        ][:len(labels_left)]
+
+        link_colors = [
+            sos_link_colors[left_index[row["SoS Property"]]]
+            for _, row in flows.iterrows()
+        ]
+
+        node_colors = sos_colors + ["rgba(0,0,0,0)"] * len(labels_right)
+
+
+        fig = go.Figure(data=[go.Sankey(
+            arrangement="snap",
+            node=dict(
+                pad=25,
+                thickness=20,
+                line=dict(color="rgba(0,0,0,0)", width=0),
+                label=labels_left + labels_right,
+                color=node_colors
+            ),
+            link=dict(
+                source=flow_sources,
+                target=flow_targets,
+                value=flow_values,
+                color=link_colors
+            )
+        )])
+
+        fig.update_layout(
+            title="ISO 23247 Digital Twin Requirements Mapped to SoS Dimensions",
+            title_font=dict(
+                family="Times New Roman",
+                size=22,
+                color="black"
+            ),
+            title_x=0.5,  
+            title_y=0.95,
+            width=1400,
+            height=900,
+            font=dict(  
+                family="Times New Roman",
+                size=18,
+                color="black"
+            ),
+            margin=dict(l=20, r=20, t=80, b=20)
+        )
+
+        fig.write_image("output/figures/overall/ISO_DT_SoS.png", scale=3)
+
+
+
 
                
 # =======================
