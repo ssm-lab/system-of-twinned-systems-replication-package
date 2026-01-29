@@ -61,6 +61,7 @@ class Analysis:
         9: "bubbleByDomainAndEmergence",
         10: "sots_vs_sos_heatmap",
         11: "trlByDomainHeatmap",
+        12: "bubbleByDomainAndTRL",
     }
     
     def __init__(self):
@@ -185,7 +186,7 @@ class Analysis:
 
         up = UpSet(upset_data, show_counts=True, sort_by='cardinality', facecolor=colour_coding["medium_blue"]).plot()
 
-        plt.suptitle("Combinations of DT Services Across Studies")
+        # plt.suptitle("Combinations of DT Services Across Studies")
         up["intersections"].set_ylabel("Number of Studies")
 
         
@@ -580,7 +581,8 @@ class Analysis:
                         str(int(v)),
                         ha="center",
                         va="center",
-                        fontsize=10
+                        fontsize=10,
+                        fontweight="bold",
                     )
 
             bottom += values
@@ -642,7 +644,7 @@ class Analysis:
         df.loc[df[domain_col].isin(low_freq_domains), domain_col] = "Other"
 
         counts = (
-            df.groupby([domain_col, sots_col])[study_col]
+            df.groupby([domain_col, sots_col], observed=True)[study_col]
             .nunique()
             .reset_index(name="Count")
         )
@@ -763,7 +765,7 @@ class Analysis:
         df.loc[df[domain_col].isin(low_freq_domains), domain_col] = "Other"
 
         counts = (
-            df.groupby([domain_col, emergence_col])[study_col]
+            df.groupby([domain_col, emergence_col], observed=True)[study_col]
             .nunique()
             .reset_index(name="Count")
         )
@@ -898,7 +900,7 @@ class Analysis:
             )
             counts.index = sos_labels
 
-            percentages = (counts.div(total) * 100).round(1)
+            percentages = (counts.div(total) * 100).round(2)
 
             heatmap_data[sots] = {
                 "counts": counts,
@@ -931,7 +933,7 @@ class Analysis:
                 vmax=vmax
             )
 
-            ax.set_title(f"{sots} (n = {total})", fontsize=12, pad=6)
+            ax.set_title(f"{sots} ({total} Studies)", fontsize=12, pad=6)
 
             ax.set_xticks(range(len(likert)))
             ax.set_xticklabels(likert, fontsize=11, rotation=20)
@@ -940,7 +942,6 @@ class Analysis:
             ax.set_yticklabels(perc_data.index, fontsize=11)
             ax.tick_params(axis="y", length=0)
 
-            # Cell values (counts)
             for i in range(perc_data.shape[0]):
                 for j in range(perc_data.shape[1]):
                     count_val = int(count_data.iloc[i, j])
@@ -950,7 +951,7 @@ class Analysis:
 
                     ax.text(
                         j, i,
-                        f"{count_val}",
+                        f"{count_val} ({perc_val:.1f}%)",
                         ha="center",
                         va="center",
                         fontsize=10,
@@ -959,15 +960,6 @@ class Analysis:
 
             for spine in ax.spines.values():
                 spine.set_visible(False)
-
-        cbar = fig.colorbar(
-            im,
-            ax=axes.ravel().tolist(),
-            fraction=0.03,
-            pad=0.02
-        )
-        cbar.set_label("Number of Studies within SoTS type", fontsize=11)
-        cbar.ax.tick_params(labelsize=10)
 
         fig.suptitle(
             "Studies Addressing SoS Principles Across SoTS Types",
@@ -1039,8 +1031,8 @@ class Analysis:
         ax.set_yticklabels(trl_order, fontsize=12)
         ax.tick_params(axis="y", length=0)
 
-        ax.set_xlabel("Domain", fontsize=13)
-        ax.set_ylabel("TRL Level", fontsize=13)
+        # ax.set_xlabel("Domain", fontsize=13)
+        # ax.set_ylabel("TRL Level", fontsize=13)
         ax.set_title("TRL Distribution by Domain", fontsize=14)
 
         # Cell values
@@ -1068,6 +1060,134 @@ class Analysis:
         plt.tight_layout()
         self.savefig("trlByDomainHeatmap", upper_folder="rq6")
         plt.close()
+
+
+
+
+    def bubbleByDomainAndTRL(self):
+        df = self.df.copy()
+
+        domain_col = "Domain (Aggregated)"
+        trl_col = "TRL"
+        study_col = "Citation Code"
+
+        trl_order = [
+            "Initial",
+            "Proof-Of-Concept",
+            "Demo Prototype",
+            "Deployed Prototype",
+            "Operational",
+        ]
+
+        df[trl_col] = df[trl_col].str.title()
+        df[trl_col] = pd.Categorical(
+            df[trl_col],
+            categories=trl_order,
+            ordered=True
+        )
+
+        # Collapse low-frequency domains
+        domain_counts = (
+            df.groupby(domain_col)[study_col]
+            .nunique()
+        )
+
+        low_freq_domains = domain_counts[domain_counts < 3].index
+        df.loc[df[domain_col].isin(low_freq_domains), domain_col] = "Other"
+
+        # Counts
+        counts = (
+            df.groupby([domain_col, trl_col], observed=True)[study_col]
+            .nunique()
+            .reset_index(name="Count")
+        )
+
+        # Domain ordering by total volume
+        domain_order = (
+            counts.groupby(domain_col)["Count"]
+            .sum()
+            .sort_values(ascending=True)
+            .index.tolist()
+        )
+
+        if "Other" in domain_order:
+            domain_order = [d for d in domain_order if d != "Other"] + ["Other"]
+
+        x_map = {d: i for i, d in enumerate(domain_order)}
+        y_map = {t: i for i, t in enumerate(trl_order)}
+
+        counts["x"] = counts[domain_col].map(x_map)
+        counts["y"] = counts[trl_col].map(y_map)
+
+        # Bubble sizing
+        size_scale = 260
+        counts["size"] = counts["Count"] * size_scale
+
+        norm = Normalize(
+            vmin=counts["Count"].min(),
+            vmax=counts["Count"].max()
+        )
+
+        # Plot
+        fig, ax = plt.subplots(figsize=(11, 6))
+        ax.margins(x=0.1, y=0.2)
+
+        sc = ax.scatter(
+            counts["x"],
+            counts["y"],
+            s=counts["size"],
+            c=counts["Count"],
+            cmap=plt.cm.Blues,
+            norm=norm,
+            alpha=0.85,
+            edgecolors="black",
+            linewidth=0.6
+        )
+
+        # Labels inside bubbles
+        for _, row in counts.iterrows():
+            if row["Count"] > 0:
+                ax.text(
+                    row["x"],
+                    row["y"],
+                    str(int(row["Count"])),
+                    ha="center",
+                    va="center",
+                    fontsize=12,
+                    color="white" if row["Count"] >= 7 else "black",
+                    weight="bold"
+                )
+
+        base_font = 15
+        title_font = base_font + 3
+
+        ax.set_xticks(range(len(domain_order)))
+        ax.set_xticklabels(domain_order, rotation=30, ha="right", fontsize=base_font)
+
+        ax.set_yticks(range(len(trl_order)))
+        ax.set_yticklabels(trl_order, fontsize=base_font)
+
+        ax.set_title(
+            "Distribution of Studies by TRL and Domain",
+            fontsize=title_font
+        )
+
+        ax.set_xlim(-0.5, len(domain_order) - 0.5)
+        ax.set_ylim(-0.5, len(trl_order) - 0.5)
+
+        ax.grid(True, linestyle="--", alpha=0.4)
+        ax.set_axisbelow(True)
+
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+
+        cbar = plt.colorbar(sc, ax=ax, pad=0.02)
+        cbar.set_label("Number of Studies", fontsize=12)
+        cbar.ax.tick_params(labelsize=11)
+
+        self.savefig("bubbleByDomainAndTRL", upper_folder="rq6")
+        plt.close()
+
 
 # =======================
 # Saving and Running Script 
