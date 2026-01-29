@@ -60,6 +60,7 @@ class Analysis:
         8: "bubbleByDomainAndSoTS",
         9: "bubbleByDomainAndEmergence",
         10: "sots_vs_sos_heatmap",
+        11: "trlByDomainHeatmap",
     }
     
     def __init__(self):
@@ -181,13 +182,16 @@ class Analysis:
             "ytick.labelsize": 22,
             "legend.fontsize": 20
         })
-        UpSet(upset_data, show_counts=True, sort_by='cardinality').plot()
+
+        up = UpSet(upset_data, show_counts=True, sort_by='cardinality', facecolor=colour_coding["medium_blue"]).plot()
+
         plt.suptitle("Combinations of DT Services Across Studies")
+        up["intersections"].set_ylabel("Number of Studies")
+
         
         for text in plt.gcf().findobj(match=plt.Text):
             if text.get_text().isdigit():
                 text.set_fontsize(23)
-
 
         self.savefig("dtServices", upper_folder="RQ3")
         plt.close()
@@ -551,8 +555,8 @@ class Analysis:
             "Initial": colour_coding["red"],
             "Proof-Of-Concept": colour_coding["orange"],
             "Demo Prototype": colour_coding["purple"],
-            "Deployed Prototype": colour_coding["blue"],
-            "Operational": colour_coding["green"],
+            "Deployed Prototype": colour_coding["green"],
+            "Operational": colour_coding["blue"],
         }
 
         base_font = 16
@@ -892,14 +896,17 @@ class Analysis:
                 })
                 .T
             )
+            counts.index = sos_labels
 
-            percentages = counts.div(total) * 100
-            percentages.index = sos_labels
+            percentages = (counts.div(total) * 100).round(1)
 
-            heatmap_data[sots] = percentages
+            heatmap_data[sots] = {
+                "counts": counts,
+                "percentages": percentages,
+                "total": total
+            }
 
-
-        # plot
+        # Plot
         fig, axes = plt.subplots(
             nrows=1,
             ncols=len(sots_order),
@@ -909,64 +916,157 @@ class Analysis:
 
         cmap = plt.cm.Blues
         vmin, vmax = 0, 100
+        im = None
 
         for ax, sots in zip(axes, sots_order):
-            data = heatmap_data[sots]
+            perc_data = heatmap_data[sots]["percentages"]
+            count_data = heatmap_data[sots]["counts"]
+            total = heatmap_data[sots]["total"]
 
             im = ax.imshow(
-                data.values,
+                perc_data.values,
                 aspect="auto",
                 cmap=cmap,
                 vmin=vmin,
                 vmax=vmax
             )
 
-            # Titles
-            ax.set_title(sots, fontsize=12, pad=6)
+            ax.set_title(f"{sots} (n = {total})", fontsize=12, pad=6)
 
-            # Axes ticks
             ax.set_xticks(range(len(likert)))
             ax.set_xticklabels(likert, fontsize=11, rotation=20)
 
-            ax.set_yticks(range(len(data.index)))
-            ax.set_yticklabels(data.index, fontsize=11)
+            ax.set_yticks(range(len(perc_data.index)))
+            ax.set_yticklabels(perc_data.index, fontsize=11)
+            ax.tick_params(axis="y", length=0)
 
-            # Cells
-            for i in range(data.shape[0]):
-                for j in range(data.shape[1]):
-                    val = data.iloc[i, j]
+            # Cell values (counts)
+            for i in range(perc_data.shape[0]):
+                for j in range(perc_data.shape[1]):
+                    count_val = int(count_data.iloc[i, j])
+                    perc_val = perc_data.iloc[i, j]
 
-                    # Text color
-                    text_color = "white" if val >= 60 else "black"
+                    text_color = "white" if perc_val >= 50 else "black"
 
                     ax.text(
                         j, i,
-                        f"{val:.0f}%",
+                        f"{count_val}",
                         ha="center",
                         va="center",
                         fontsize=10,
                         color=text_color
                     )
+
             for spine in ax.spines.values():
                 spine.set_visible(False)
 
-        # # Colorbar
-        # cbar = fig.colorbar(
-        #     im,
-        #     ax=axes.ravel().tolist(),
-        #     fraction=0.03,
-        #     pad=0.02
-        # )
-        # cbar.set_label("Percentage of studies", fontsize=10)
-        # cbar.ax.tick_params(labelsize=9)
+        cbar = fig.colorbar(
+            im,
+            ax=axes.ravel().tolist(),
+            fraction=0.03,
+            pad=0.02
+        )
+        cbar.set_label("Number of Studies within SoTS type", fontsize=11)
+        cbar.ax.tick_params(labelsize=10)
 
         fig.suptitle(
-            "Percentage of Studies Addressing SoS Principles Within Each SoTS Type",
+            "Studies Addressing SoS Principles Across SoTS Types",
             fontsize=14,
             y=0.98
         )
 
         self.savefig("sots_vs_sos_heatmap", upper_folder="RQ4")
+        plt.close()
+
+
+
+    def trlByDomainHeatmap(self):
+        df = self.df.copy()
+
+        domain_col = "Domain (Aggregated)"
+        trl_col = "TRL"
+
+        trl_order = [
+            "Operational",
+            "Deployed Prototype",
+            "Demo Prototype",
+            "Proof-Of-Concept",
+            "Initial",  
+        ]
+
+        df[trl_col] = df[trl_col].str.title()
+        df[trl_col] = pd.Categorical(df[trl_col], categories=trl_order, ordered=True)
+
+        domain_counts = (
+            df
+            .groupby(domain_col)["Citation Code"]
+            .nunique()
+        )
+
+        low_freq_domains = domain_counts[domain_counts < 3].index
+        df.loc[df[domain_col].isin(low_freq_domains), domain_col] = "Other"
+
+        counts = (
+            df
+            .groupby([trl_col, domain_col], observed=True)["Citation Code"]
+            .nunique()
+            .unstack(fill_value=0)
+        )
+
+        counts = counts.reindex(trl_order)
+
+        domain_totals = counts.sum(axis=0).sort_values(ascending=True)
+        counts = counts[domain_totals.index]
+
+        # Keep Other at the end
+        if "Other" in counts.columns:
+            other_col = counts[["Other"]]
+            counts = counts.drop(columns="Other")
+            counts = pd.concat([counts, other_col], axis=1)
+
+        fig, ax = plt.subplots(figsize=(12, 6))
+
+        im = ax.imshow(
+            counts.values,
+            aspect="auto",
+            cmap=plt.cm.Blues
+        )
+
+        ax.set_xticks(range(len(counts.columns)))
+        ax.set_xticklabels(counts.columns, rotation=30, ha="right", fontsize=12)
+
+        ax.set_yticks(range(len(trl_order)))
+        ax.set_yticklabels(trl_order, fontsize=12)
+        ax.tick_params(axis="y", length=0)
+
+        ax.set_xlabel("Domain", fontsize=13)
+        ax.set_ylabel("TRL Level", fontsize=13)
+        ax.set_title("TRL Distribution by Domain", fontsize=14)
+
+        # Cell values
+        max_val = counts.values.max()
+        for i in range(counts.shape[0]):
+            for j in range(counts.shape[1]):
+                val = counts.iloc[i, j]
+                text_color = "white" if val >= 0.5 * max_val else "black"
+                ax.text(
+                    j, i,
+                    str(int(val)),
+                    ha="center",
+                    va="center",
+                    fontsize=11,
+                    color=text_color
+                )
+
+        cbar = fig.colorbar(im, ax=ax, fraction=0.03, pad=0.02)
+        cbar.set_label("Number of Studies", fontsize=12)
+        cbar.ax.tick_params(labelsize=11)
+
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+
+        plt.tight_layout()
+        self.savefig("trlByDomainHeatmap", upper_folder="rq6")
         plt.close()
 
 # =======================
