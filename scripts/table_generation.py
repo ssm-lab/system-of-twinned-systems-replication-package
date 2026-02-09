@@ -7,6 +7,15 @@ import pandas as pd
 import matplotlib as mpl
 from matplotlib import transforms as mtransforms
 
+__author__ = "Feyi Adesanya"
+__copyright__ = "Copyright 2024, Sustainable Systems and Methods Lab (SSM)"
+__license__ = "GPL-3.0"
+
+data_path = "data/Data extraction sheet.xlsx"
+results_path = "./output/tables"
+bar_charts_output = ""
+BAR_CHART_DIR = os.path.join(results_path, "bar_charts")
+
 mpl.rcParams.update({
     "font.family": "serif",
     "font.serif": ["Times New Roman", "Times", "DejaVu Serif"],
@@ -20,38 +29,27 @@ mpl.rcParams.update({
     "mathtext.rm": "serif",                  
 })
 
-
-__author__ = "Feyi Adesanya"
-__copyright__ = "Copyright 2024, Sustainable Systems and Methods Lab (SSM)"
-__license__ = "GPL-3.0"
-
-data_path = "data/Data extraction sheet.xlsx"
-results_path = "./output/tables"
-bar_charts_output = ""
-BAR_CHART_DIR = os.path.join(results_path, "bar_charts")
-
-
 class Analysis:
     observation_map = {
-        1: "motivationsTable", #RQ1
-        2: "intentsTable", #RQ1
-        3: "domainsTable", #RQ1
-        6: "constituentUnitsTable", #RQ2
-        7: "autonomyTable", #RQ3
-        9: "emergenceTable", #RQ4
-        10: "sots_classificationTable", #RQ2
-        11: "trlTable", #RQ5
-        13: "standardsTable", #RQ5
-        14: "contributionTypeTable", #RQ5
-        15: "dtServicesTable", #RQ3
-        16: "programmingLangaugesTables", #RQ2
-        17: "generate_frameworks_table", #RQ3
-        18: "dtOrSoSRelated", # RQ5
-        20: "securityTable", 
-        21: "reliabilityTable",
-        23: "generate_structured_eval_table",
-        24: "generate_formalisms_methods_table",
-        25: "generate_challenges_table",
+        1: "motivationsTable", 
+        2: "intentsTable", 
+        3: "domainsTable", 
+        4: "constituentUnitsTable",
+        5: "autonomyTable",
+        6: "emergenceTable",
+        7: "sots_classificationTable",
+        8: "trlTable",
+        9: "standardsTable",
+        10: "contributionTypeTable",
+        11: "dtServicesTable",
+        12: "programmingLangaugesTables",
+        13: "generate_frameworks_table",
+        14: "dtOrSoSRelated",
+        15: "securityTable", 
+        16: "reliabilityTable",
+        17: "generate_structured_eval_table",
+        18: "generate_formalisms_methods_table",
+        19: "generate_challenges_table",
     }
     
     def __init__(self):
@@ -77,7 +75,7 @@ class Analysis:
         df[columns_to_check] = df[columns_to_check].apply(pd.to_numeric, errors="coerce")
         df = df.dropna(subset=columns_to_check)
         df = df[~(df[columns_to_check] == 0).any(axis=1)]
-        # Sort by the citation order before creating tables, will match with latex citations
+        # Sort by the citation order before creating tables
         df = df.sort_values(by=["Citation Order", "Citation Code"], kind="mergesort").reset_index(drop=True)
         df["Paper ID"] = [f"T{i+1:02d}" for i in range(len(df))]
         return df
@@ -353,7 +351,6 @@ class Analysis:
         else:
             summary_df = summary_df.sort_values(by="Paper_Count", ascending=False, kind="mergesort")
 
-        # LaTeX
         latex_table = self.generate_latex_table(summary_df, caption, label, tabular_size, first_column_name)
         self.saveLatex(save_location, latex_table)
 
@@ -436,7 +433,6 @@ class Analysis:
         if other_row is not None:
             summary_df = pd.concat([summary_df, pd.DataFrame([other_row])], ignore_index=True)
 
-        # LaTeX
         latex_table = self.generate_latex_table(
             summary_df, latex_caption, latex_label, latex_tabular_size, latex_first_column
         )
@@ -455,8 +451,6 @@ class Analysis:
         )
 
 
-            
-        
     def generate_hierarchical_table(self, category_list, caption, label, filename, column_label, threshold=2, latex_friendly_names=None):
         df = self.df.copy()
         citation_col = "Citation Code"
@@ -586,7 +580,6 @@ class Analysis:
                 if pd.notna(citation):
                     hierarchy[eval_type][item].add(citation)
 
-        # Start LaTeX table
         latex_lines = [
             "\\begin{table*}[]",
             "\\centering",

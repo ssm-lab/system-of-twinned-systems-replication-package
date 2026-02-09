@@ -28,3 +28,4 @@ To avoid dependency conflicts and ensure a clean environment, it is recommended 
 - For the quality report: execute `python .\scripts\quality.py` from the root folder.
 - For the result figures: execute `python .\scripts\figure_generation.py` from the root folder.
 - For the result tables: execute `python .\scripts\table_generation.py` from the root folder.
+- For the contingency tables: execute `python .\scripts\parwise_chi_heatmaps.py` from the root folder.

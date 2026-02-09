@@ -13,7 +13,10 @@ __license__ = "GPL-3.0"
 
 inputFolder = './data'
 outputFolder = './output'
-data = pd.read_excel(f'{inputFolder}/data.xlsx')
+data = pd.read_excel(f'{inputFolder}/Data extraction sheet.xlsx')
+
+data.columns = data.iloc[0]
+data = data[1:].reset_index(drop=True)
 
 data = data[data['Quality score'].notnull()]
 qualityThresholds = {
@@ -173,6 +176,6 @@ def chartData(data, settings):
 
 chartData(data, [
     (['Publication year', 'Publication type', 'Publisher'], '#85d4ff', 'publications'),
-    (['Domain (Aggregated)'], '#85d4ff', 'domain'),
+    # (['Domain (Aggregated)'], '#85d4ff', 'domain'),
     ]
 )
